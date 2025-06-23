@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "811902640661",
+    "project_id": "luanvan-6bfff",
+    "storage_bucket": "luanvan-6bfff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:811902640661:android:a7b70c6042e64b95f7a41c",
+        "android_client_info": {
+          "package_name": "com.example.luanvan"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "811902640661-e7ttrg4gtk23l6sedn9jkc4tnn8tkuph.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.luanvan",
+            "certificate_hash": "f180d392161125c507e97e75ed0a67f9d45d2c79"
+          }
+        },
+        {
+          "client_id": "811902640661-qjp6c0b3orc5vmsv7ub703tvpaev8dn9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCm5FK5eZj-zKRiYQSj6ZPmXM7BICI2CsY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "811902640661-qjp6c0b3orc5vmsv7ub703tvpaev8dn9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
