@@ -51,14 +51,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
 
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn();
+      print('Starting Google Sign-In process');
       await googleSignIn.signOut();
+      print('Signed out previous session');
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
+        print('User canceled Google Sign-In');
         return;
       }
+      print('Google User signed in: ${googleUser.email}');
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      print('Authentication: accessToken=${googleAuth.accessToken}, idToken=${googleAuth.idToken}');
 
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
         throw Exception('Không thể lấy thông tin xác thực từ Google');
@@ -70,7 +75,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       );
 
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      print('Firebase Auth successful: ${userCredential.user!.uid}');
       final idToken = await userCredential.user!.getIdToken();
+      print('Generated idToken: $idToken');
 
       final response = await http.post(
         Uri.parse('${Config.getNgrokUrl()}/google-signin'),
@@ -81,11 +88,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
         body: jsonEncode({'idToken': idToken}),
       ).timeout(const Duration(seconds: 30));
 
+      print('Server response: status=${response.statusCode}, body=${response.body}');
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
         final uid = data['uid'] as String?;
         final token = data['token'] as String?;
+        print('Received uid: $uid, token: $token');
 
         if (uid == null || token == null) {
           throw Exception('Dữ liệu không hợp lệ từ server');
@@ -110,6 +119,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
         }
       }
     } catch (e) {
+      print('Error in Google Sign-In: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi: $e')),
