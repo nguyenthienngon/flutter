@@ -32,7 +32,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
   late TextEditingController _quantityController;
   DateTime? _selectedExpiryDate;
   String? _selectedAreaId;
-  DateTime? _storageDate; // Thay createdAt bằng storageDate
+  DateTime? _storageDate; // Sử dụng storageDate
   String? _selectedUnitName;
   List<Map<String, dynamic>> _storageAreas = [];
   List<Map<String, dynamic>> _units = [];
@@ -121,6 +121,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
               'categoryName': 'Unknown Category',
               'storageDate': null, // Sử dụng storageDate
               'unitName': 'Unknown Unit',
+              'imageUrl': null, // Thêm imageUrl mặc định
             },
           );
           print('Fetched log from API: $_foodLog');
@@ -135,9 +136,20 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
             'categoryName': 'Unknown Category',
             'storageDate': null, // Sử dụng storageDate
             'unitName': 'Unknown Unit',
+            'imageUrl': null, // Thêm imageUrl mặc định
           };
         }
       }
+
+      // Lấy foodId và truy vấn imageUrl từ Firestore
+      if (_foodLog?['foodId'] != null) {
+        final foodDoc = await _firestore.collection('Foods').doc(_foodLog!['foodId']).get();
+        if (foodDoc.exists) {
+          final foodData = foodDoc.data() as Map<String, dynamic>?;
+          _foodLog!['imageUrl'] = foodData?['imageUrl'];
+        }
+      }
+
       // Kiểm tra và lấy categoryName từ API nếu cần
       if (_foodLog?['categoryName'] == 'Unknown Category' && _foodLog?['foodId'] != null) {
         final categoryName = await _fetchCategoryNameFromApi(_foodLog!['foodId']);
@@ -155,6 +167,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         'categoryName': 'Unknown Category',
         'storageDate': null, // Sử dụng storageDate
         'unitName': 'Unknown Unit',
+        'imageUrl': null, // Thêm imageUrl mặc định
       };
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -208,7 +221,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     _quantityController.text = (_foodLog?['quantity'] as num?)?.toString() ?? '0';
     _selectedAreaId = _foodLog?['areaId'];
     _selectedExpiryDate = _parseDate(_foodLog?['expiryDate']);
-    _storageDate = _parseDate(_foodLog?['storageDate']); // Thay createdAt bằng storageDate
+    _storageDate = _parseDate(_foodLog?['storageDate']); // Sử dụng storageDate
     _selectedUnitName = _foodLog?['unitName'] ?? _units.firstWhere(
           (unit) => unit['id'] == _foodLog?['unitId'],
       orElse: () => {'name': 'Unknown Unit'},
@@ -269,6 +282,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         transaction.update(foodRef, {
           'name': _nameController.text.trim(),
           'updatedAt': FieldValue.serverTimestamp(),
+          'imageUrl': _foodLog?['imageUrl'], // Giữ nguyên imageUrl
         });
 
         transaction.update(storageLogRef, {
@@ -292,6 +306,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
           'unitId': updatedStorageLogDoc['unitId'],
           'updatedAt': updatedStorageLogDoc['updatedAt'],
           'storageDate': updatedStorageLogDoc['storageDate'], // Cập nhật storageDate
+          'imageUrl': updatedFoodDoc['imageUrl'], // Cập nhật imageUrl
         };
         _updateUIFromLog();
       }
@@ -584,6 +599,34 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Thêm hình ảnh
+                                _foodLog!['imageUrl'] != null
+                                    ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: Image.network(
+                                    _foodLog!['imageUrl'],
+                                    height: 150,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        height: 150,
+                                        color: Colors.grey[300],
+                                        child: const Center(
+                                          child: Icon(Icons.error, color: Colors.red),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                )
+                                    : Container(
+                                  height: 150,
+                                  color: Colors.grey[300],
+                                  child: const Center(
+                                    child: Icon(Icons.image_not_supported, color: Colors.grey),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [

@@ -41,6 +41,35 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:811902640661:android:31cae2be0b88dd74f7a41c",
+        "android_client_info": {
+          "package_name": "ctu.edu.vn"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "811902640661-qjp6c0b3orc5vmsv7ub703tvpaev8dn9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCm5FK5eZj-zKRiYQSj6ZPmXM7BICI2CsY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "811902640661-qjp6c0b3orc5vmsv7ub703tvpaev8dn9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

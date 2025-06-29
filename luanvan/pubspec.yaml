@@ -22,7 +22,14 @@ dependencies:
   web_socket_channel: ^3.0.1
   debounce_throttle: ^2.0.0
   intl: ^0.19.0
-  translator: ^1.0.0  # Add translator package
+  translator: ^1.0.0
+  googleapis: ^11.0.0
+  googleapis_auth: ^1.4.0
+  path_provider: ^2.0.0
+  firebase_storage: ^12.4.6
+  connectivity_plus: ^5.0.2
+  file_picker: ^10.2.0
+  url_launcher: ^6.2.6
 
 dev_dependencies:
   flutter_test:
@@ -37,6 +44,7 @@ flutter:
     - assets/face.png
     - assets/X.jpg
     - assets/img.png
+    - assets/credentials.json  # Thêm file credentials.json
   fonts:
     - family: Tahoma
       fonts:

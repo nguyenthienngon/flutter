@@ -1,5 +1,5 @@
 class Config {
   static String getNgrokUrl() {
-    return 'https://8dcf-2402-800-6343-dbcd-3d8d-ae34-2dd7-448.ngrok-free.app';
+    return 'https://14bb-2402-800-6343-dbcd-19dc-c96d-acd8-912b.ngrok-free.app';
   }
 }
