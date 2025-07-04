@@ -26,7 +26,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen> with Ti
   List<Map<String, dynamic>> _recipes = [];
   List<Map<String, dynamic>> _cuisines = [];
   List<String> _selectedCuisines = [];
-  List<String> _selectedTypes = []; // Khởi tạo là danh sách rỗng, tránh null
+  List<String> _selectedTypes = [];
   bool _loading = false;
   String? _error;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -168,7 +168,10 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen> with Ti
     setState(() {
       _loading = true;
       _error = null;
-      _selectedIngredients = _processedFoodItems.where((item) => item['selected'] == true).map((item) => item['name'] as String).toList();
+      _selectedIngredients = _processedFoodItems
+          .where((item) => item['selected'] == true)
+          .map((item) => item['name'] as String)
+          .toList();
     });
 
     print('Gửi yêu cầu gợi ý công thức với nguyên liệu: $_selectedIngredients, ẩm thực: $_selectedCuisines, loại: $_selectedTypes');
@@ -178,7 +181,8 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen> with Ti
         'userId': widget.userId,
         'ingredients': _selectedIngredients,
         'cuisines': _selectedCuisines,
-        'type': _selectedTypes, // Gửi danh sách loại
+        'type': _selectedTypes,
+        'ingredientPriority': {},
       };
 
       final response = await http.post(
@@ -192,22 +196,38 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen> with Ti
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final recipes = List<Map<String, dynamic>>.from(data['recipes'] ?? []);
-        // Kiểm tra trạng thái yêu thích cho mỗi công thức
+        if (recipes.isEmpty) {
+          setState(() {
+            _error = 'Không có công thức nào được tìm thấy.';
+            _recipes = [];
+          });
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_error!)));
+          return;
+        }
         final updatedRecipes = await Future.wait(recipes.map((recipe) async {
           final isFav = await _isFavorite(recipe['recipeId']);
-          recipe['isFavorite'] = isFav; // Cập nhật trạng thái yêu thích
-          return recipe;
+          return {...recipe, 'isFavorite': isFav};
         }));
         setState(() {
           _recipes = updatedRecipes;
         });
         print('Công thức nhận được: $_recipes');
+      } else if (response.statusCode == 404) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _error = data['error'] ?? 'Không tìm thấy công thức, vui lòng thử lại.';
+          _recipes = [];
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_error!)));
       } else {
         throw Exception('Lỗi khi lấy công thức: ${response.body}');
       }
     } catch (e) {
       print('Lỗi khi gợi ý công thức: $e');
-      setState(() => _error = 'Lỗi khi gợi ý công thức: $e');
+      setState(() {
+        _error = 'Lỗi khi gợi ý công thức: $e';
+        _recipes = [];
+      });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_error!)));
     } finally {
       setState(() => _loading = false);
@@ -270,6 +290,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen> with Ti
   Future<bool> _isFavorite(String recipeId) async {
     try {
       final response = await http.get(Uri.parse('$_ngrokUrl/get_favorite_recipes?userId=${widget.userId}'));
+      print('Phản hồi từ get_favorite_recipes: ${response.body}');
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final favorites = List<Map<String, dynamic>>.from(data['recipes'] ?? []);
@@ -428,30 +449,35 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen> with Ti
                   'Thời gian chuẩn bị: ${recipe['readyInMinutes'] ?? 'N/A'} phút',
                   style: const TextStyle(fontSize: 16),
                 ),
-                Text(
-                  'Khẩu phần: ${recipe['servings'] ?? 'N/A'}',
-                  style: const TextStyle(fontSize: 16),
-                ),
                 const SizedBox(height: 16),
                 const Text('Nguyên liệu có sẵn:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                for (var ingredient in (recipe['ingredientsUsed'] ?? []))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text('• $ingredient'),
-                  ),
+                if ((recipe['ingredientsUsed'] ?? []).isEmpty)
+                  const Text('Không có nguyên liệu có sẵn', style: TextStyle(color: Colors.grey))
+                else
+                  for (var ingredient in (recipe['ingredientsUsed'] ?? []))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Text('• $ingredient'),
+                    ),
                 const SizedBox(height: 16),
                 const Text('Nguyên liệu còn thiếu:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                for (var ingredient in (recipe['ingredientsMissing'] ?? []))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    child: Text('• $ingredient'),
-                  ),
+                if ((recipe['ingredientsMissing'] ?? []).isEmpty)
+                  const Text('Không có nguyên liệu còn thiếu', style: TextStyle(color: Colors.grey))
+                else
+                  for (var ingredient in (recipe['ingredientsMissing'] ?? []))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Text('• $ingredient'),
+                    ),
                 const SizedBox(height: 16),
                 const Text('Hướng dẫn:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text(recipe['instructions'] ?? 'Không có hướng dẫn'),
+                Text(
+                  recipe['instructions'] ?? 'Không có hướng dẫn chi tiết',
+                  style: const TextStyle(fontSize: 16),
+                ),
                 const SizedBox(height: 16),
               ],
             ),
@@ -749,6 +775,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen> with Ti
                                   itemCount: _recipes.length,
                                   itemBuilder: (context, index) {
                                     final recipe = _recipes[index];
+                                    print('Rendering recipe: ${recipe['title']}');
                                     return ListTile(
                                       leading: recipe['imageUrl'] != null
                                           ? ClipRRect(
