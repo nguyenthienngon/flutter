@@ -32,6 +32,13 @@ dependencies:
   file_picker: ^10.2.0
   url_launcher: ^6.2.6
   workmanager: ^0.6.0
+  logger: ^2.4.0
+  html: ^0.15.4  # Thêm gói html để xử lý thẻ HTML
+  dropdown_button2: ^2.3.9
+  fl_chart: ^0.68.0  # Thêm dòng này
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,7 +52,7 @@ flutter:
     - assets/face.png
     - assets/X.jpg
     - assets/img.png
-    - assets/credentials.json  # Thêm file credentials.json
+    - assets/credentials.json
   fonts:
     - family: Tahoma
       fonts:

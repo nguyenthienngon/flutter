@@ -4,19 +4,20 @@ import 'package:debounce_throttle/debounce_throttle.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'config.dart';
-import 'home_screen.dart';
-import 'package:intl/intl.dart'; // Thêm package intl
+import 'package:intl/intl.dart';
 
 class FoodDetailScreen extends StatefulWidget {
   final String storageLogId;
   final String userId;
   final Map<String, dynamic>? initialLog;
+  final bool isDarkMode; // Thêm tham số isDarkMode
 
   const FoodDetailScreen({
     super.key,
     required this.storageLogId,
     required this.userId,
     this.initialLog,
+    required this.isDarkMode, // Nhận chế độ tối từ HomeScreen
   });
 
   @override
@@ -25,14 +26,18 @@ class FoodDetailScreen extends StatefulWidget {
 
 class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProviderStateMixin {
   late AnimationController _animationController;
+  late AnimationController _headerAnimationController;
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _headerSlideAnimation;
+
   Map<String, dynamic>? _foodLog;
   late TextEditingController _nameController;
   late TextEditingController _quantityController;
   DateTime? _selectedExpiryDate;
   String? _selectedAreaId;
-  DateTime? _storageDate; // Sử dụng storageDate
+  DateTime? _storageDate;
   String? _selectedUnitName;
   List<Map<String, dynamic>> _storageAreas = [];
   List<Map<String, dynamic>> _units = [];
@@ -46,27 +51,56 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
   );
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final DateFormat _customDateFormat = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'");
+
+  // Getter màu sắc động dựa trên chế độ tối
+  Color get currentBackgroundColor => widget.isDarkMode ? const Color(0xFF121212) : const Color(0xFFE6F7FF);
+  Color get currentSurfaceColor => widget.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white;
+  Color get currentTextPrimaryColor => widget.isDarkMode ? const Color(0xFFE0E0E0) : const Color(0xFF202124);
+  Color get currentTextSecondaryColor => widget.isDarkMode ? const Color(0xFFB0B0B0) : const Color(0xFF5F6368);
+
   final Color primaryColor = const Color(0xFF0078D7);
+  final Color secondaryColor = const Color(0xFF50E3C2);
   final Color accentColor = const Color(0xFF00B294);
-  final Color textLightColor = const Color(0xFF5F6368);
-  final DateFormat _customDateFormat = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'"); // Định dạng tùy chỉnh
+  final Color successColor = const Color(0xFF00C851);
+  final Color warningColor = const Color(0xFFE67E22);
+  final Color errorColor = const Color(0xFFE74C3C);
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
+    _initializeAnimations();
     _nameController = TextEditingController();
     _quantityController = TextEditingController();
     _fetchAllData();
+  }
+
+  void _initializeAnimations() {
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _headerAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+    );
+
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _headerSlideAnimation = Tween<double>(begin: -50.0, end: 0.0).animate(
+      CurvedAnimation(parent: _headerAnimationController, curve: Curves.easeOut),
+    );
   }
 
   Future<void> _fetchAllData() async {
@@ -78,7 +112,12 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         _fetchUnits().catchError((e) => print('Error fetching units: $e')),
       ]);
       _updateUIFromLog();
-      if (mounted) _animationController.forward();
+      if (mounted) {
+        _headerAnimationController.forward();
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) _animationController.forward();
+        });
+      }
     } catch (e) {
       print('Error fetching all data: $e');
     } finally {
@@ -89,6 +128,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
   @override
   void dispose() {
     _animationController.dispose();
+    _headerAnimationController.dispose();
     _nameController.dispose();
     _quantityController.dispose();
     _nameDebouncer.cancel();
@@ -96,7 +136,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
   }
 
   Future<void> _fetchInitialData() async {
-    setState(() => _isLoading = true);
     try {
       print('Fetching initial data for storageLogId: ${widget.storageLogId}');
       if (widget.initialLog != null && widget.initialLog!.isNotEmpty) {
@@ -119,9 +158,9 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
               'areaId': null,
               'expiryDate': null,
               'categoryName': 'Unknown Category',
-              'storageDate': null, // Sử dụng storageDate
+              'storageDate': null,
               'unitName': 'Unknown Unit',
-              'imageUrl': null, // Thêm imageUrl mặc định
+              'imageUrl': null,
             },
           );
           print('Fetched log from API: $_foodLog');
@@ -134,27 +173,28 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
             'areaId': null,
             'expiryDate': null,
             'categoryName': 'Unknown Category',
-            'storageDate': null, // Sử dụng storageDate
+            'storageDate': null,
             'unitName': 'Unknown Unit',
-            'imageUrl': null, // Thêm imageUrl mặc định
+            'imageUrl': null,
           };
         }
       }
 
-      // Lấy foodId và truy vấn imageUrl từ Firestore
+      // Fetch imageUrl from Firestore
       if (_foodLog?['foodId'] != null) {
         final foodDoc = await _firestore.collection('Foods').doc(_foodLog!['foodId']).get();
         if (foodDoc.exists) {
-          final foodData = foodDoc.data() as Map<String, dynamic>?;
+          final foodData = foodDoc.data();
           _foodLog!['imageUrl'] = foodData?['imageUrl'];
         }
       }
 
-      // Kiểm tra và lấy categoryName từ API nếu cần
+      // Fetch categoryName from API if needed
       if (_foodLog?['categoryName'] == 'Unknown Category' && _foodLog?['foodId'] != null) {
         final categoryName = await _fetchCategoryNameFromApi(_foodLog!['foodId']);
         _foodLog!['categoryName'] = categoryName;
       }
+
       _updateUIFromLog();
     } catch (e) {
       print('Error fetching initial data: $e');
@@ -165,12 +205,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         'areaId': null,
         'expiryDate': null,
         'categoryName': 'Unknown Category',
-        'storageDate': null, // Sử dụng storageDate
+        'storageDate': null,
         'unitName': 'Unknown Unit',
-        'imageUrl': null, // Thêm imageUrl mặc định
+        'imageUrl': null,
       };
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -201,7 +239,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         _selectedAreaId ??= _foodLog?['areaId'] ?? (_storageAreas.isNotEmpty ? _storageAreas[0]['id'] : null);
       });
     } catch (e) {
-      print('Lỗi khi lấy khu vực: $e');
+      print('Error fetching storage areas: $e');
     }
   }
 
@@ -212,7 +250,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         _units = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
       });
     } catch (e) {
-      print('Lỗi khi lấy đơn vị: $e');
+      print('Error fetching units: $e');
     }
   }
 
@@ -221,7 +259,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     _quantityController.text = (_foodLog?['quantity'] as num?)?.toString() ?? '0';
     _selectedAreaId = _foodLog?['areaId'];
     _selectedExpiryDate = _parseDate(_foodLog?['expiryDate']);
-    _storageDate = _parseDate(_foodLog?['storageDate']); // Sử dụng storageDate
+    _storageDate = _parseDate(_foodLog?['storageDate']);
     _selectedUnitName = _foodLog?['unitName'] ?? _units.firstWhere(
           (unit) => unit['id'] == _foodLog?['unitId'],
       orElse: () => {'name': 'Unknown Unit'},
@@ -230,12 +268,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
 
   DateTime? _parseDate(dynamic dateData) {
     if (dateData is String) {
-      // Thử parse với định dạng tùy chỉnh "EEE, dd MMM yyyy HH:mm:ss 'GMT'"
       try {
         return _customDateFormat.parse(dateData, true).toUtc().toLocal();
       } catch (e) {
         print('Custom date parsing failed for $dateData: $e');
-        // Nếu thất bại, thử với DateTime.tryParse
         return DateTime.tryParse(dateData) ?? DateTime.tryParse(dateData.split('.')[0]);
       }
     } else if (dateData is DateTime) {
@@ -252,7 +288,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
 
     final quantity = int.tryParse(_quantityController.text) ?? 0;
     if (quantity < 0) {
-      _showSnackBar('Số lượng không thể âm', Colors.red);
+      _showSnackBar('Số lượng không thể âm', errorColor);
       setState(() => _isSaving = false);
       return;
     }
@@ -260,7 +296,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     try {
       final foodId = _foodLog?['foodId'];
       if (foodId == null) {
-        _showSnackBar('Không tìm thấy foodId', Colors.red);
+        _showSnackBar('Không tìm thấy foodId', errorColor);
         await _navigateBackWithRefresh();
         return;
       }
@@ -282,7 +318,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         transaction.update(foodRef, {
           'name': _nameController.text.trim(),
           'updatedAt': FieldValue.serverTimestamp(),
-          'imageUrl': _foodLog?['imageUrl'], // Giữ nguyên imageUrl
+          'imageUrl': _foodLog?['imageUrl'],
         });
 
         transaction.update(storageLogRef, {
@@ -294,8 +330,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         });
       });
 
+      // Cập nhật _foodLog với dữ liệu mới
       final updatedFoodDoc = await foodRef.get();
       final updatedStorageLogDoc = await storageLogRef.get();
+
       if (updatedFoodDoc.exists && updatedStorageLogDoc.exists) {
         _foodLog = {
           ..._foodLog!,
@@ -305,38 +343,63 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
           'areaId': updatedStorageLogDoc['areaId'],
           'unitId': updatedStorageLogDoc['unitId'],
           'updatedAt': updatedStorageLogDoc['updatedAt'],
-          'storageDate': updatedStorageLogDoc['storageDate'], // Cập nhật storageDate
-          'imageUrl': updatedFoodDoc['imageUrl'], // Cập nhật imageUrl
+          'storageDate': updatedStorageLogDoc['storageDate'],
+          'imageUrl': updatedFoodDoc['imageUrl'],
         };
         _updateUIFromLog();
       }
 
-      _showSnackBar('Cập nhật thành công!', accentColor);
-      await _navigateBackWithRefresh();
+      _showSnackBar('Cập nhật thành công!', successColor);
+      // Truyền tên mới và foodId trở lại HomeScreen
+      Navigator.pop(context, {
+        'refreshStorageLogs': true,
+        'refreshFoods': true,
+        'foodId': foodId,
+        'foodName': _nameController.text.trim(), // Thêm tên mới
+      });
     } catch (e) {
-      _showSnackBar('Lỗi: $e', Colors.red);
+      _showSnackBar('Lỗi: $e', errorColor);
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
-
   Future<void> _deleteFoodAndStorageLogs() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Xác nhận xóa', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('Bạn có chắc chắn muốn xóa "${_nameController.text}" và tất cả bản ghi liên quan?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: errorColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.warning_rounded, color: errorColor, size: 24),
+            ),
+            const SizedBox(width: 12),
+            const Text('Xác nhận xóa', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Bạn có chắc chắn muốn xóa "${_nameController.text}" và tất cả bản ghi liên quan?',
+          style: TextStyle(color: currentTextSecondaryColor, fontSize: 16),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+            child: Text('Hủy', style: TextStyle(color: currentTextSecondaryColor)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Xóa', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: errorColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Xóa', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
 
@@ -345,7 +408,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     try {
       final foodId = _foodLog?['foodId'];
       if (foodId == null) {
-        _showSnackBar('Không tìm thấy foodId', Colors.red);
+        _showSnackBar('Không tìm thấy foodId', errorColor);
         await _navigateBackWithRefresh();
         return;
       }
@@ -353,7 +416,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       await _firestore.runTransaction((transaction) async {
         final foodRef = _firestore.collection('Foods').doc(foodId);
         final storageLogRef = _firestore.collection('StorageLogs').doc(widget.storageLogId);
-
         final foodDoc = await transaction.get(foodRef);
         final storageLogDoc = await transaction.get(storageLogRef);
 
@@ -368,10 +430,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         transaction.delete(storageLogRef);
       });
 
-      _showSnackBar('Xóa thành công!', accentColor);
+      _showSnackBar('Xóa thành công!', successColor);
       await _navigateBackWithRefresh();
     } catch (e) {
-      _showSnackBar('Lỗi: $e', Colors.red);
+      _showSnackBar('Lỗi: $e', errorColor);
     }
   }
 
@@ -380,6 +442,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       'refreshStorageLogs': true,
       'refreshFoods': true,
       'foodId': _foodLog?['foodId'],
+      'foodName': _nameController.text.trim(), // Thêm tên mới
     });
   }
 
@@ -388,15 +451,20 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.white, size: 20),
+            Icon(
+              backgroundColor == successColor ? Icons.check_circle_outline : Icons.error_outline,
+              color: Colors.white,
+              size: 20,
+            ),
             const SizedBox(width: 8),
-            Expanded(child: Text(message, style: const TextStyle(color: Colors.white))),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
           ],
         ),
         backgroundColor: backgroundColor,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -413,8 +481,8 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
             colorScheme: ColorScheme.light(
               primary: primaryColor,
               onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: const Color(0xFF202124),
+              surface: currentSurfaceColor,
+              onSurface: currentTextPrimaryColor,
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(foregroundColor: primaryColor),
@@ -432,12 +500,14 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
   Future<void> _selectArea(BuildContext context, List<Map<String, dynamic>> areas) async {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: currentSurfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -445,35 +515,72 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
               width: 50,
               height: 5,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: currentTextSecondaryColor.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2.5),
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Chọn khu vực',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF202124)),
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: currentTextPrimaryColor,
+              ),
             ),
             const SizedBox(height: 20),
-            Expanded(
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.5,
+              ),
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: areas.length,
                 itemBuilder: (context, index) {
                   final area = areas[index];
-                  return ListTile(
-                    leading: Icon(Icons.location_on, color: primaryColor, size: 24),
-                    title: Text(area['name'] ?? 'Unknown Area',
-                        style: const TextStyle(fontSize: 18, color: Color(0xFF202124))),
-                    onTap: () {
-                      if (mounted) {
-                        setState(() => _selectedAreaId = area['id']);
-                      }
-                      Navigator.pop(context);
-                    },
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    tileColor: Colors.grey[50],
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  final isSelected = _selectedAreaId == area['id'];
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? LinearGradient(colors: [primaryColor, accentColor])
+                          : null,
+                      color: isSelected ? null : currentBackgroundColor.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? Colors.transparent : currentTextSecondaryColor.withOpacity(0.2),
+                      ),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.white.withOpacity(0.2) : primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.location_on_rounded,
+                          color: isSelected ? Colors.white : primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        area['name'] ?? 'Unknown Area',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? Colors.white : currentTextPrimaryColor,
+                        ),
+                      ),
+                      onTap: () {
+                        if (mounted) {
+                          setState(() => _selectedAreaId = area['id']);
+                        }
+                        Navigator.pop(context);
+                      },
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
                   );
                 },
               ),
@@ -484,11 +591,59 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     );
   }
 
+  IconData _getFoodIcon(String foodName) {
+    final name = foodName.toLowerCase();
+    if (name.contains('thịt') || name.contains('gà') || name.contains('heo')) {
+      return Icons.set_meal_rounded;
+    } else if (name.contains('rau') || name.contains('củ')) {
+      return Icons.eco_rounded;
+    } else if (name.contains('trái') || name.contains('quả')) {
+      return Icons.apple_rounded;
+    } else if (name.contains('sữa') || name.contains('yaourt')) {
+      return Icons.local_drink_rounded;
+    }
+    return Icons.fastfood_rounded;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _foodLog == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0078D7)))),
+      return Scaffold(
+        backgroundColor: currentBackgroundColor,
+        body: Center(
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: currentSurfaceColor,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                  strokeWidth: 3.0,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Đang tải dữ liệu...',
+                  style: TextStyle(
+                    color: currentTextPrimaryColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -502,151 +657,132 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         ? _selectedExpiryDate!.difference(DateTime.now()).inDays
         : 999;
 
-    Color statusColor = const Color(0xFF4CAF50);
+    Color statusColor = successColor;
     String statusText = 'Tươi';
-    IconData statusIcon = Icons.check_circle;
+    IconData statusIcon = Icons.check_circle_rounded;
 
     if (daysLeft <= 0) {
-      statusColor = Colors.red;
+      statusColor = errorColor;
       statusText = 'Hết hạn';
-      statusIcon = Icons.error;
+      statusIcon = Icons.error_rounded;
     } else if (daysLeft <= 3) {
-      statusColor = const Color(0xFFFF9800);
+      statusColor = warningColor;
       statusText = 'Sắp hết hạn';
-      statusIcon = Icons.warning;
+      statusIcon = Icons.warning_rounded;
     } else if (_selectedExpiryDate == null) {
-      statusColor = Colors.grey;
+      statusColor = currentTextSecondaryColor;
       statusText = 'Không rõ';
-      statusIcon = Icons.help;
+      statusIcon = Icons.help_rounded;
     }
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [const Color(0xFFE6F7FF).withOpacity(0.8), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.white, const Color(0xFFFAFDFF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.arrow_back_ios, color: primaryColor),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Expanded(
-                      child: Text(
-                        'Chi tiết thực phẩm',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF202124),
-                        ),
-                        textAlign: TextAlign.center,
+      backgroundColor: currentBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Modern Header
+            AnimatedBuilder(
+              animation: _headerSlideAnimation,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(0, _headerSlideAnimation.value),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [primaryColor, accentColor],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SlideTransition(
-                  position: _slideAnimation,
-                  child: ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.white, const Color(0xFFF5FAFF)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
+                    child: Row(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Chi tiết thực phẩm',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Thêm hình ảnh
-                                _foodLog!['imageUrl'] != null
-                                    ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(15),
-                                  child: Image.network(
-                                    _foodLog!['imageUrl'],
-                                    height: 150,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        height: 150,
-                                        color: Colors.grey[300],
-                                        child: const Center(
-                                          child: Icon(Icons.error, color: Colors.red),
-                                        ),
-                                      );
-                                    },
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            _getFoodIcon(_foodLog?['foodName'] ?? ''),
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            // Content
+            Expanded(
+              child: AnimatedBuilder(
+                animation: _fadeAnimation,
+                builder: (context, child) {
+                  return Opacity(
+                    opacity: _fadeAnimation.value,
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: ScaleTransition(
+                        scale: _scaleAnimation,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Status Card
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [statusColor.withOpacity(0.1), statusColor.withOpacity(0.05)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                   ),
-                                )
-                                    : Container(
-                                  height: 150,
-                                  color: Colors.grey[300],
-                                  child: const Center(
-                                    child: Icon(Icons.image_not_supported, color: Colors.grey),
-                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: statusColor.withOpacity(0.3)),
                                 ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Row(
                                   children: [
                                     Container(
-                                      width: 50,
-                                      height: 50,
+                                      padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [statusColor.withOpacity(0.15), statusColor.withOpacity(0.05)],
-                                          begin: Alignment.center,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(15),
-                                        border: Border.all(color: statusColor.withOpacity(0.2), width: 1),
+                                        color: statusColor.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(16),
                                       ),
-                                      child: Icon(
-                                        Icons.fastfood_outlined,
-                                        color: statusColor,
-                                        size: 28,
-                                      ),
+                                      child: Icon(statusIcon, color: statusColor, size: 24),
                                     ),
                                     const SizedBox(width: 16),
                                     Expanded(
@@ -654,193 +790,414 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
+                                            'Trạng thái',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: currentTextSecondaryColor,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            statusText,
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: statusColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (_selectedExpiryDate != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          daysLeft > 0 ? '$daysLeft ngày' : 'Đã hết hạn',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: statusColor,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // Main Info Card
+                              Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: currentSurfaceColor,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.08),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Image Section
+                                    if (_foodLog!['imageUrl'] != null)
+                                      ClipRRect(
+                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                                        child: Image.network(
+                                          _foodLog!['imageUrl'],
+                                          height: 200,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container(
+                                              height: 200,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [primaryColor.withOpacity(0.1), accentColor.withOpacity(0.1)],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                              ),
+                                              child: Center(
+                                                child: Icon(
+                                                  _getFoodIcon(_foodLog?['foodName'] ?? ''),
+                                                  size: 64,
+                                                  color: primaryColor,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      )
+                                    else
+                                      Container(
+                                        height: 200,
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [primaryColor.withOpacity(0.1), accentColor.withOpacity(0.1)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                                        ),
+                                        child: Center(
+                                          child: Icon(
+                                            _getFoodIcon(_foodLog?['foodName'] ?? ''),
+                                            size: 64,
+                                            color: primaryColor,
+                                          ),
+                                        ),
+                                      ),
+
+                                    // Form Section
+                                    Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Category
+                                          Text(
                                             _foodLog?['categoryName'] ?? 'Unknown Category',
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,
-                                              color: textLightColor,
+                                              color: primaryColor,
                                             ),
                                           ),
-                                          const SizedBox(height: 6),
-                                          TextField(
+                                          const SizedBox(height: 20),
+
+                                          // Food Name
+                                          _buildModernTextField(
                                             controller: _nameController,
-                                            decoration: InputDecoration(
-                                              labelText: 'Tên thực phẩm',
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(10),
-                                                borderSide: BorderSide.none,
-                                              ),
-                                              filled: true,
-                                              fillColor: Colors.grey[50],
-                                              hintStyle: TextStyle(color: textLightColor),
-                                            ),
+                                            label: 'Tên thực phẩm',
+                                            icon: Icons.fastfood_rounded,
                                             onChanged: (value) => _nameDebouncer.value = value,
-                                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                                          ),
+                                          const SizedBox(height: 20),
+
+                                          // Quantity
+                                          _buildModernTextField(
+                                            controller: _quantityController,
+                                            label: 'Số lượng',
+                                            icon: Icons.numbers_rounded,
+                                            keyboardType: TextInputType.number,
+                                            suffix: Text(
+                                              _selectedUnitName ?? 'Unknown Unit',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                color: currentTextSecondaryColor,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            onChanged: (value) {
+                                              if (int.tryParse(value) == null && value.isNotEmpty) {
+                                                _quantityController.text = '0';
+                                                _quantityController.selection = TextSelection.fromPosition(
+                                                  TextPosition(offset: 1),
+                                                );
+                                                _showSnackBar('Vui lòng nhập số lượng hợp lệ', warningColor);
+                                              }
+                                            },
+                                          ),
+                                          const SizedBox(height: 20),
+
+                                          // Area Selection
+                                          _buildModernSelector(
+                                            label: 'Khu vực',
+                                            value: areaName,
+                                            icon: Icons.location_on_rounded,
+                                            onTap: () => _selectArea(context, _storageAreas),
+                                          ),
+                                          const SizedBox(height: 20),
+
+                                          // Expiry Date
+                                          _buildModernSelector(
+                                            label: 'Ngày hết hạn',
+                                            value: _selectedExpiryDate != null
+                                                ? '${_selectedExpiryDate!.day}/${_selectedExpiryDate!.month}/${_selectedExpiryDate!.year}'
+                                                : 'Chọn ngày',
+                                            icon: Icons.calendar_today_rounded,
+                                            onTap: () => _selectDate(context),
+                                          ),
+                                          const SizedBox(height: 20),
+
+                                          // Storage Date Info
+                                          _buildInfoRow(
+                                            'Ngày tạo',
+                                            _storageDate != null
+                                                ? '${_storageDate!.day}/${_storageDate!.month}/${_storageDate!.year}'
+                                                : 'Unknown',
+                                            Icons.create_rounded,
                                           ),
                                         ],
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 20),
-                                const Divider(color: Color(0xFFD3DDE3), thickness: 1),
-                                const SizedBox(height: 20),
-                                TextField(
-                                  controller: _quantityController,
-                                  keyboardType: TextInputType.number,
-                                  decoration: InputDecoration(
-                                    labelText: 'Số lượng',
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                    filled: true,
-                                    fillColor: Colors.grey[50],
-                                    suffixText: _selectedUnitName ?? 'Unknown Unit',
-                                    suffixStyle: TextStyle(fontSize: 16, color: textLightColor),
-                                  ),
-                                  onChanged: (value) {
-                                    if (int.tryParse(value) == null && value.isNotEmpty) {
-                                      _quantityController.text = '0';
-                                      _quantityController.selection = TextSelection.fromPosition(
-                                        const TextPosition(offset: 1),
-                                      );
-                                      _showSnackBar('Vui lòng nhập số lượng hợp lệ', Colors.orange);
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                InkWell(
-                                  onTap: () => _selectArea(context, _storageAreas),
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: 'Khu vực',
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                      filled: true,
-                                      fillColor: Colors.grey[50],
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          areaName,
-                                          style: const TextStyle(fontSize: 16),
+                              ),
+
+                              const SizedBox(height: 32),
+
+                              // Action Buttons
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      height: 56,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [accentColor, successColor],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
                                         ),
-                                        Icon(Icons.arrow_drop_down, color: textLightColor),
+                                        borderRadius: BorderRadius.circular(16),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: accentColor.withOpacity(0.3),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ElevatedButton.icon(
+                                        onPressed: _isSaving ? null : _updateFoodAndStorageLog,
+                                        icon: _isSaving
+                                            ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                            : const Icon(Icons.save_rounded, color: Colors.white, size: 20),
+                                        label: Text(
+                                          _isSaving ? 'Đang lưu...' : 'Lưu thay đổi',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.transparent,
+                                          shadowColor: Colors.transparent,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Container(
+                                    height: 56,
+                                    decoration: BoxDecoration(
+                                      color: currentSurfaceColor,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: errorColor, width: 2),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: errorColor.withOpacity(0.1),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
                                       ],
                                     ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                InkWell(
-                                  onTap: () => _selectDate(context),
-                                  child: InputDecorator(
-                                    decoration: InputDecoration(
-                                      labelText: 'Ngày hết hạn',
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                                      filled: true,
-                                      fillColor: Colors.grey[50],
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          _selectedExpiryDate != null
-                                              ? '${_selectedExpiryDate!.day}/${_selectedExpiryDate!.month}/${_selectedExpiryDate!.year}'
-                                              : 'Chọn ngày',
-                                          style: const TextStyle(fontSize: 16),
-                                        ),
-                                        Icon(Icons.calendar_today, color: textLightColor),
-                                      ],
+                                    child: IconButton(
+                                      onPressed: _isSaving ? null : _deleteFoodAndStorageLogs,
+                                      icon: Icon(Icons.delete_rounded, color: errorColor, size: 24),
+                                      tooltip: 'Xóa thực phẩm',
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                                _buildInfoRow(
-                                  'Ngày tạo', // Sử dụng storageDate
-                                  _storageDate != null
-                                      ? '${_storageDate!.day}/${_storageDate!.month}/${_storageDate!.year}'
-                                      : 'Unknown',
-                                  Icons.create,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: _isSaving ? null : _updateFoodAndStorageLog,
-                                  icon: _isSaving
-                                      ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                  )
-                                      : Icon(Icons.save, color: Colors.white, size: 20),
-                                  label: Text(
-                                    _isSaving ? 'Đang lưu...' : 'Lưu',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: accentColor,
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    elevation: 6,
-                                    shadowColor: accentColor.withOpacity(0.3),
-                                  ),
-                                ),
+                                ],
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _isSaving ? null : _deleteFoodAndStorageLogs,
-                                  icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                                  label: const Text(
-                                    'Xóa',
-                                    style: TextStyle(
-                                      color: Colors.red,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: Colors.red),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    backgroundColor: Colors.white,
-                                  ),
-                                ),
-                              ),
+
+                              const SizedBox(height: 32),
                             ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    Widget? suffix,
+    Function(String)? onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: currentBackgroundColor.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primaryColor.withOpacity(0.2)),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: currentTextPrimaryColor,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: currentTextSecondaryColor, fontWeight: FontWeight.w500),
+          prefixIcon: Container(
+            margin: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: primaryColor, size: 20),
           ),
+          suffixIcon: suffix != null ? Padding(
+            padding: const EdgeInsets.all(16),
+            child: suffix,
+          ) : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernSelector({
+    required String label,
+    required String value,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: currentBackgroundColor.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: primaryColor.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: primaryColor, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: currentTextSecondaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: currentTextPrimaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios_rounded, color: currentTextSecondaryColor, size: 16),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildInfoRow(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primaryColor.withOpacity(0.1)),
+      ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: textLightColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: textLightColor, size: 20),
+            child: Icon(icon, color: primaryColor, size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -851,17 +1208,17 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                   label,
                   style: TextStyle(
                     fontSize: 14,
-                    color: textLightColor,
-                    fontWeight: FontWeight.w600,
+                    color: currentTextSecondaryColor,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF202124),
+                    fontWeight: FontWeight.w600,
+                    color: currentTextPrimaryColor,
                   ),
                 ),
               ],
