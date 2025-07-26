@@ -81,20 +81,32 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
     setState(() => _isLoading = true);
 
     try {
+      _logger.i('Gửi yêu cầu tới: $_ngrokUrl/get_favorite_recipes?userId=${widget.userId}');
       final response = await http.get(
         Uri.parse('$_ngrokUrl/get_favorite_recipes?userId=${widget.userId}'),
         headers: {'Content-Type': 'application/json'},
       );
 
+      _logger.i('Phản hồi HTTP: status=${response.statusCode}, body=${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final List<Map<String, dynamic>> recipes = List<Map<String, dynamic>>.from(data['recipes'] ?? []).map((recipe) {
+        _logger.i('Dữ liệu JSON: $data');
+
+        final List<Map<String, dynamic>> recipes = List<Map<String, dynamic>>.from(data['favoriteRecipes'] ?? []).map((recipe) {
           return {
             ...recipe,
-            'image': recipe['image'] ?? '',
+            'image': recipe['imageUrl'] ?? '', // Sử dụng imageUrl thay vì image
             'isFavorite': true,
             'favoritedDate': recipe['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
-            'favoriteRecipeId': recipe['favoriteRecipeId'],
+            'favoriteRecipeId': recipe['id'] ?? 'unknown_${recipe['recipeId']}', // Sử dụng id thay vì favoriteRecipeId
+            'instructions': recipe['instructions'] ?? 'Không có hướng dẫn chi tiết', // Giá trị mặc định
+            'ingredientsUsed': recipe['ingredientsUsed'] ?? [], // Giá trị mặc định
+            'ingredientsMissing': recipe['ingredientsMissing'] ?? [], // Giá trị mặc định
+            'readyInMinutes': recipe['readyInMinutes'] ?? 0, // Giá trị mặc định
+            'timeSlot': recipe['timeSlot'] ?? 'day', // Giá trị mặc định
+            'nutrition': recipe['nutrition'] ?? [], // Giá trị mặc định
+            'diets': recipe['diets'] ?? [], // Giá trị mặc định
           };
         }).toList();
 
@@ -108,8 +120,13 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
           _favoriteRecipes = recipes;
           _error = null;
         });
+
+        _logger.i('Đã tải ${_favoriteRecipes.length} công thức yêu thích');
         if (_favoriteRecipes.isNotEmpty) {
           _showSuccessSnackBar('Đã tải ${_favoriteRecipes.length} công thức yêu thích!');
+        } else {
+          _logger.w('Không có công thức yêu thích nào được trả về');
+          _showErrorSnackBar('Không có công thức yêu thích nào!');
         }
       } else {
         throw Exception('Không thể tải công thức yêu thích: ${response.body}');
@@ -124,7 +141,6 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
       setState(() => _isLoading = false);
     }
   }
-
   Future<void> _deleteFavoriteRecipe(String favoriteRecipeId) async {
     final confirmed = await showDialog<bool>(
       context: context,
