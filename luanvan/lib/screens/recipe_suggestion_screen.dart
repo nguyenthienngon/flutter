@@ -791,6 +791,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                   setState(() {
                                     item['selected'] = value ?? false;
                                   });
+                                  // Không gọi _suggestRecipes ở đây
                                 },
                                 activeColor: _themeColors.primaryColor,
                                 shape: RoundedRectangleBorder(
@@ -859,7 +860,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                           ? null
                           : () {
                         Navigator.pop(context);
-                        _suggestRecipes();
+                        _suggestRecipes(); // Gọi tìm kiếm ở đây
                       },
                       icon: _isLoading
                           ? const SizedBox(
@@ -1637,7 +1638,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
+                  shadowColor: null,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -1851,7 +1852,8 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                           _isAdvancedOptionsVisible
                                               ? Icons.expand_less
                                               : Icons.expand_more,
-                                          color: _themeColors.primaryColor,
+                                          color:
+                                          _themeColors.primaryColor,
                                         ),
                                         onPressed: () {
                                           setState(() {
@@ -1873,7 +1875,8 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                         _themeColors.primaryColor,
                                         _themeColors.accentColor,
                                       ]),
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius:
+                                      BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
                                           color: _themeColors.primaryColor
@@ -1885,18 +1888,19 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                     ),
                                     child: ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.transparent,
+                                        backgroundColor:
+                                        Colors.transparent,
                                         shadowColor: Colors.transparent,
-                                        padding: const EdgeInsets.symmetric(
+                                        padding:
+                                        const EdgeInsets.symmetric(
                                             vertical: 12),
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
                                           BorderRadius.circular(8),
                                         ),
                                       ),
-                                      onPressed: _isLoading
-                                          ? null
-                                          : _suggestRecipes,
+                                      onPressed:
+                                      _isLoading ? null : _suggestRecipes,
                                       icon: _isLoading
                                           ? const SizedBox(
                                         width: 24,
@@ -1957,7 +1961,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                             Icons.refresh,
                                             color:
                                             _themeColors.primaryColor,
-                                            size: 24,
+                                            size: 20,
                                           ),
                                           onPressed: _isLoading
                                               ? null
@@ -2000,6 +2004,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
+
   Future<void> _clearOffsetCache() async {
     _logger.i('Đang xóa cache offset cho userId: ${widget.userId}');
     try {
@@ -2021,11 +2026,12 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       _logger.e('Lỗi khi xóa cache offset: $e', stackTrace: stackTrace);
     }
   }
+
   @override
   void dispose() {
     _animationController.dispose();
     _headerAnimationController.dispose();
-    _clearOffsetCache(); // Gọi phương thức để xóa cache offset
+    _clearOffsetCache();
     _httpClient.close();
     super.dispose();
   }

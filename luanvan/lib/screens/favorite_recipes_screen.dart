@@ -54,7 +54,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
 
   void _setupAnimations() {
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800), // Reduced for faster response on Pixel 4
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
     _headerController = AnimationController(
@@ -96,17 +96,17 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
         final List<Map<String, dynamic>> recipes = List<Map<String, dynamic>>.from(data['favoriteRecipes'] ?? []).map((recipe) {
           return {
             ...recipe,
-            'image': recipe['imageUrl'] ?? '', // Sử dụng imageUrl thay vì image
+            'image': recipe['imageUrl'] ?? '',
             'isFavorite': true,
             'favoritedDate': recipe['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
-            'favoriteRecipeId': recipe['id'] ?? 'unknown_${recipe['recipeId']}', // Sử dụng id thay vì favoriteRecipeId
-            'instructions': recipe['instructions'] ?? 'Không có hướng dẫn chi tiết', // Giá trị mặc định
-            'ingredientsUsed': recipe['ingredientsUsed'] ?? [], // Giá trị mặc định
-            'ingredientsMissing': recipe['ingredientsMissing'] ?? [], // Giá trị mặc định
-            'readyInMinutes': recipe['readyInMinutes'] ?? 0, // Giá trị mặc định
-            'timeSlot': recipe['timeSlot'] ?? 'day', // Giá trị mặc định
-            'nutrition': recipe['nutrition'] ?? [], // Giá trị mặc định
-            'diets': recipe['diets'] ?? [], // Giá trị mặc định
+            'favoriteRecipeId': recipe['id'] ?? 'unknown_${recipe['recipeId']}',
+            'instructions': recipe['instructions'] ?? 'Không có hướng dẫn chi tiết',
+            'ingredientsUsed': recipe['ingredientsUsed'] ?? [],
+            'ingredientsMissing': recipe['ingredientsMissing'] ?? [],
+            'readyInMinutes': recipe['readyInMinutes'] ?? 0,
+            'timeSlot': recipe['timeSlot'] ?? 'day',
+            'nutrition': recipe['nutrition'] ?? [],
+            'diets': recipe['diets'] ?? [],
           };
         }).toList();
 
@@ -141,6 +141,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
       setState(() => _isLoading = false);
     }
   }
+
   Future<void> _deleteFavoriteRecipe(String favoriteRecipeId) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -218,7 +219,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
           'image': updatedRecipe['image'],
           'ingredientsUsed': updatedRecipe['ingredientsUsed'] ?? [],
           'ingredientsMissing': updatedRecipe['ingredientsMissing'] ?? [],
-          'readyInMinutes': updatedRecipe['readyInMinutes'] ?? 'N/A',
+          'readyInMinutes': updatedRecipe['readyInMinutes'] ?? 0,
           'timeSlot': updatedRecipe['timeSlot'] ?? 'day',
           'nutrition': updatedRecipe['nutrition'] ?? [],
           'diets': updatedRecipe['diets'] ?? [],
@@ -253,7 +254,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
         backgroundColor: currentSurfaceColor,
         child: Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.7, // Reduced for Pixel 4
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
             maxWidth: MediaQuery.of(context).size.width * 0.9,
           ),
           child: Column(
@@ -271,7 +272,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                     const SizedBox(width: 8),
                     Text(
                       'Chỉnh sửa công thức',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ],
                 ),
@@ -299,7 +300,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                       const SizedBox(height: 12),
                       if (recipe['image'] != null && recipe['image'].isNotEmpty)
                         Container(
-                          height: MediaQuery.of(context).size.height * 0.18, // Reduced for Pixel 4
+                          height: MediaQuery.of(context).size.height * 0.18,
                           width: double.infinity,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(10),
@@ -318,7 +319,8 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                               fit: BoxFit.cover,
                               loadingBuilder: (context, child, loadingProgress) {
                                 if (loadingProgress == null) return child;
-                                return Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryColor)));
+                                return Center(
+                                    child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(primaryColor)));
                               },
                               errorBuilder: (context, error, stackTrace) => Container(
                                 decoration: BoxDecoration(
@@ -326,7 +328,8 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Center(
-                                  child: Icon(Icons.broken_image, size: 36, color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                                  child: Icon(Icons.broken_image,
+                                      size: 36, color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
                                 ),
                               ),
                             ),
@@ -335,7 +338,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                       const SizedBox(height: 12),
                       TextField(
                         controller: instructionsController,
-                        maxLines: 4, // Reduced for Pixel 4
+                        maxLines: 4,
                         decoration: InputDecoration(
                           labelText: 'Hướng dẫn nấu ăn',
                           labelStyle: TextStyle(color: currentTextSecondaryColor, fontSize: 14),
@@ -371,7 +374,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                           'image': recipe['image'],
                           'ingredientsUsed': recipe['ingredientsUsed'] ?? [],
                           'ingredientsMissing': recipe['ingredientsMissing'] ?? [],
-                          'readyInMinutes': recipe['readyInMinutes'] ?? 'N/A',
+                          'readyInMinutes': recipe['readyInMinutes'] ?? 0,
                           'timeSlot': recipe['timeSlot'] ?? 'day',
                           'nutrition': recipe['nutrition'] ?? [],
                           'diets': recipe['diets'] ?? [],
@@ -385,7 +388,8 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      child: const Text('Lưu thay đổi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      child: const Text('Lưu thay đổi',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                     ),
                   ],
                 ),
@@ -403,7 +407,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.8, // Reduced for Pixel 4
+        initialChildSize: 0.8,
         minChildSize: 0.4,
         maxChildSize: 0.9,
         expand: false,
@@ -415,7 +419,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
           child: SingleChildScrollView(
             controller: scrollController,
             child: Padding(
-              padding: const EdgeInsets.all(16), // Reduced padding
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -465,13 +469,14 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                         borderRadius: BorderRadius.circular(10),
                         child: Image.network(
                           recipe['image'],
-                          height: MediaQuery.of(context).size.height * 0.18, // Reduced for Pixel 4
+                          height: MediaQuery.of(context).size.height * 0.18,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) => Container(
                             height: MediaQuery.of(context).size.height * 0.18,
                             color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                            child: Icon(Icons.broken_image, size: 36, color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                            child: Icon(Icons.broken_image,
+                                size: 36, color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
                           ),
                         ),
                       ),
@@ -523,7 +528,8 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                           spacing: 6,
                           runSpacing: 6,
                           children: (recipe['diets'] as List).map((diet) => Chip(
-                            label: Text(diet.toString(), style: TextStyle(color: currentTextPrimaryColor, fontSize: 11)),
+                            label: Text(diet.toString(),
+                                style: TextStyle(color: currentTextPrimaryColor, fontSize: 11)),
                             backgroundColor: primaryColor.withOpacity(0.1),
                             side: BorderSide(color: primaryColor.withOpacity(0.3)),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -542,7 +548,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                         ),
                         const SizedBox(height: 8),
                         Container(
-                          height: MediaQuery.of(context).size.height * 0.18, // Reduced for Pixel 4
+                          height: MediaQuery.of(context).size.height * 0.18,
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[50],
@@ -554,21 +560,25 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                       ],
                     ),
                   const SizedBox(height: 12),
-                  if (recipe['ingredientsUsed'] != null)
-                    _buildIngredientSection(
-                      'Nguyên liệu có sẵn',
-                      (recipe['ingredientsUsed'] as List<dynamic>).map((e) => '${e['name']} (${e['amount']} ${e['unit']})').toList(),
-                      successColor,
-                      Icons.check_circle,
-                    ),
-                  const SizedBox(height: 12),
-                  if (recipe['ingredientsMissing'] != null)
-                    _buildIngredientSection(
-                      'Nguyên liệu còn thiếu',
-                      (recipe['ingredientsMissing'] as List<dynamic>).map((e) => '${e['name']} (${e['amount']} ${e['unit']})').toList(),
-                      warningColor,
-                      Icons.shopping_cart,
-                    ),
+                  _buildIngredientSection(
+                    'Nguyên liệu',
+                    [
+                      ...(recipe['ingredientsUsed'] as List<dynamic>? ?? []).map((e) => ({
+                        'text': e['name'] != null && e['amount'] != null && e['unit'] != null
+                            ? '${e['name']} (${e['amount']} ${e['unit']})'
+                            : e['name']?.toString() ?? 'Unknown',
+                        'isMissing': false,
+                      })),
+                      ...(recipe['ingredientsMissing'] as List<dynamic>? ?? []).map((e) => ({
+                        'text': e['name'] != null && e['amount'] != null && e['unit'] != null
+                            ? '${e['name']} (${e['amount']} ${e['unit']})'
+                            : e['name']?.toString() ?? 'Unknown',
+                        'isMissing': true,
+                      })),
+                    ],
+                    primaryColor,
+                    Icons.restaurant_menu,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Hướng dẫn',
@@ -606,49 +616,56 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
       'Protein': filteredNutrients.firstWhere((n) => n['name'] == 'Protein', orElse: () => {'amount': 0.0, 'unit': 'g'})['amount']?.toDouble() ?? 0.0,
     };
 
-    return nutrientData.values.every((value) => value == 0.0)
-        ? Center(child: Text('Không có dữ liệu dinh dưỡng', style: TextStyle(color: currentTextSecondaryColor, fontSize: 12)))
-        : BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        barGroups: [
-          BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: nutrientData['Calories']!, color: const Color(0xFF36A2EB), width: 14, borderRadius: BorderRadius.circular(4))]),
-          BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: nutrientData['Fat']!, color: const Color(0xFFFFCE56), width: 14, borderRadius: BorderRadius.circular(4))]),
-          BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: nutrientData['Carbohydrates']!, color: const Color(0xFFFF6384), width: 14, borderRadius: BorderRadius.circular(4))]),
-          BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: nutrientData['Protein']!, color: const Color(0xFF4BC0C0), width: 14, borderRadius: BorderRadius.circular(4))]),
+    if (nutrientData.values.every((value) => value == 0.0)) {
+      return Center(
+          child: Text('Không có dữ liệu dinh dưỡng', style: TextStyle(color: currentTextSecondaryColor, fontSize: 12)));
+    }
+
+    return PieChart(
+      PieChartData(
+        sections: [
+          PieChartSectionData(
+            value: nutrientData['Calories']!,
+            color: const Color(0xFF36A2EB),
+            title: 'Calories',
+            radius: 40,
+            titleStyle: TextStyle(fontSize: 10, color: widget.isDarkMode ? Colors.white : Colors.black),
+          ),
+          PieChartSectionData(
+            value: nutrientData['Fat']!,
+            color: const Color(0xFFFFCE56),
+            title: 'Fat',
+            radius: 40,
+            titleStyle: TextStyle(fontSize: 10, color: widget.isDarkMode ? Colors.white : Colors.black),
+          ),
+          PieChartSectionData(
+            value: nutrientData['Carbohydrates']!,
+            color: const Color(0xFFFF6384),
+            title: 'Carbs',
+            radius: 40,
+            titleStyle: TextStyle(fontSize: 10, color: widget.isDarkMode ? Colors.white : Colors.black),
+          ),
+          PieChartSectionData(
+            value: nutrientData['Protein']!,
+            color: const Color(0xFF4BC0C0),
+            title: 'Protein',
+            radius: 40,
+            titleStyle: TextStyle(fontSize: 10, color: widget.isDarkMode ? Colors.white : Colors.black),
+          ),
         ],
-        titlesData: FlTitlesData(
-          show: true,
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) => Text(
-                ['Calories', 'Fat', 'Carbs', 'Protein'][value.toInt()],
-                style: TextStyle(color: widget.isDarkMode ? Colors.white : Colors.black, fontSize: 9), // Reduced for Pixel 4
-              ),
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 32,
-              getTitlesWidget: (value, meta) => Text(
-                value.toInt().toString(),
-                style: TextStyle(color: widget.isDarkMode ? Colors.white : Colors.black, fontSize: 9), // Reduced for Pixel 4
-              ),
-            ),
-          ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        sectionsSpace: 2,
+        centerSpaceRadius: 20,
+        pieTouchData: PieTouchData(
+          enabled: true,
+          touchCallback: (FlTouchEvent event, pieTouchResponse) {
+            // Optional: Handle touch interactions
+          },
         ),
-        gridData: const FlGridData(show: false),
-        borderData: FlBorderData(show: false),
-        barTouchData: BarTouchData(enabled: false),
       ),
     );
   }
 
-  Widget _buildIngredientSection(String title, List<String> ingredients, Color color, IconData icon) {
+  Widget _buildIngredientSection(String title, List<Map<String, dynamic>> ingredients, Color color, IconData icon) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -670,22 +687,36 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
               color: widget.isDarkMode ? Colors.grey[700] : Colors.grey[100],
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text('Không có $title', style: TextStyle(color: currentTextSecondaryColor, fontSize: 12)),
+            child: Text('Không có nguyên liệu', style: TextStyle(color: currentTextSecondaryColor, fontSize: 12)),
           )
         else
           ...ingredients.map((ingredient) => Container(
             margin: const EdgeInsets.only(bottom: 6),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: ingredient['isMissing'] ? warningColor.withOpacity(0.1) : successColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: color.withOpacity(0.3)),
+              border: Border.all(
+                  color: ingredient['isMissing'] ? warningColor.withOpacity(0.3) : successColor.withOpacity(0.3)),
             ),
             child: Row(
               children: [
-                Icon(Icons.circle, color: color, size: 6),
+                Icon(
+                  ingredient['isMissing'] ? Icons.warning : Icons.check_circle,
+                  color: ingredient['isMissing'] ? warningColor : successColor,
+                  size: 12,
+                ),
                 const SizedBox(width: 6),
-                Expanded(child: Text(ingredient, style: TextStyle(color: currentTextPrimaryColor, fontSize: 12))),
+                Expanded(
+                  child: Text(
+                    ingredient['text'],
+                    style: TextStyle(
+                      color: currentTextPrimaryColor,
+                      fontSize: 12,
+                      fontStyle: ingredient['isMissing'] ? FontStyle.italic : FontStyle.normal,
+                    ),
+                  ),
+                ),
               ],
             ),
           )),
@@ -703,7 +734,8 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
             color: currentSurfaceColor,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.08), blurRadius: 10, offset: const Offset(0, 4)),
+              BoxShadow(
+                  color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.08), blurRadius: 10, offset: const Offset(0, 4)),
             ],
           ),
           child: Padding(
@@ -711,7 +743,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
             child: Row(
               children: [
                 Container(
-                  width: 60, // Reduced for Pixel 4
+                  width: 60,
                   height: 60,
                   decoration: BoxDecoration(
                     color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[200],
@@ -726,13 +758,13 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                       Container(
                         width: double.infinity,
                         height: 12,
-                        color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                        color: widget.isDarkMode ? Colors.grey[600] : Colors.grey[300],
                       ),
                       const SizedBox(height: 6),
                       Container(
                         width: 80,
                         height: 10,
-                        color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                        color: widget.isDarkMode ? Colors.grey[600] : Colors.grey[300],
                       ),
                     ],
                   ),
@@ -748,47 +780,78 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
   Widget _buildEmptyState() {
     return Center(
       child: Container(
-        margin: const EdgeInsets.all(24), // Reduced for Pixel 4
-        padding: const EdgeInsets.all(24),
+        margin: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: currentSurfaceColor,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+            BoxShadow(
+              color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [primaryColor.withOpacity(0.2), primaryColor.withOpacity(0.1)]),
+                gradient: LinearGradient(
+                  colors: [primaryColor.withOpacity(0.2), primaryColor.withOpacity(0.1)],
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.favorite_border, size: 48, color: primaryColor),
+              child: Icon(
+                Icons.favorite_border,
+                size: 48,
+                color: primaryColor,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 6),
             Text(
               'Chưa có công thức yêu thích',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: currentTextPrimaryColor),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: currentTextPrimaryColor,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               'Thêm công thức yêu thích từ màn hình gợi ý\nđể lưu lại và xem bất cứ lúc nào!',
-              style: TextStyle(fontSize: 12, color: currentTextSecondaryColor, height: 1.5),
+              style: TextStyle(
+                fontSize: 12,
+                color: currentTextSecondaryColor,
+                height: 1.5,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => Navigator.pop(context),
-              icon: Icon(Icons.explore, color: Colors.white, size: 16),
-              label: Text('Khám phá công thức', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+              icon: const Icon(
+                Icons.explore,
+                color: Colors.white,
+                size: 16,
+              ),
+              label: const Text(
+                'Khám phá công thức',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: accentColor,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -796,10 +859,9 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
       ),
     );
   }
-
   Widget _buildRecipeCard(Map<String, dynamic> recipe, int index) {
     final date = DateTime.tryParse(recipe['favoritedDate'] ?? '') ?? DateTime.now();
-    final formattedDate = DateFormat('dd/MM/yyyy HH:mm').format(date);
+    final formattedDate = DateFormat('dd/MM/yyyy').format(date);
 
     return AnimatedBuilder(
       animation: _animationController,
@@ -814,7 +876,8 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.08), blurRadius: 10, offset: const Offset(0, 4)),
+                  BoxShadow(
+                      color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.08), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
               child: Card(
@@ -838,7 +901,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                         Row(
                           children: [
                             Container(
-                              width: 60, // Reduced for Pixel 4
+                              width: 60,
                               height: 60,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
@@ -850,7 +913,8 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                                 child: Image.network(
                                   recipe['image'],
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Icon(Icons.restaurant, color: primaryColor, size: 24),
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Icon(Icons.restaurant, color: primaryColor, size: 24),
                                 ),
                               )
                                   : Icon(Icons.restaurant, color: primaryColor, size: 24),
@@ -862,7 +926,8 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                                 children: [
                                   Text(
                                     recipe['title'] ?? 'Không có tiêu đề',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: currentTextPrimaryColor),
+                                    style: TextStyle(
+                                        fontSize: 12, fontWeight: FontWeight.bold, color: currentTextPrimaryColor),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -879,7 +944,11 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                                       Icon(Icons.schedule, size: 12, color: currentTextSecondaryColor),
                                       const SizedBox(width: 4),
                                       Text(
-                                        recipe['timeSlot'] == 'morning' ? 'Sáng' : recipe['timeSlot'] == 'afternoon' ? 'Trưa' : 'Tối',
+                                        recipe['timeSlot'] == 'morning'
+                                            ? 'Sáng'
+                                            : recipe['timeSlot'] == 'afternoon'
+                                            ? 'Trưa'
+                                            : 'Tối',
                                         style: TextStyle(fontSize: 11, color: currentTextSecondaryColor),
                                       ),
                                     ],
@@ -931,7 +1000,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.error_outline, color: Colors.white, size: 18),
+            Icon(Icons.error_outline, color: Colors.white, size: 16),
             const SizedBox(width: 8),
             Expanded(child: Text(message, style: const TextStyle(fontSize: 12))),
           ],
@@ -949,7 +1018,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+            Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
             const SizedBox(width: 8),
             Expanded(child: Text(message, style: const TextStyle(fontSize: 12))),
           ],
@@ -1052,7 +1121,7 @@ class _FavoriteRecipesScreenState extends State<FavoriteRecipesScreen> with Tick
                                     const SizedBox(width: 8),
                                     Text(
                                       'Công Thức Yêu Thích',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,

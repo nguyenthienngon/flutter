@@ -13,6 +13,10 @@ import 'package:http/http.dart' as http;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis_auth/auth_io.dart' as auth;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:image/image.dart' as img;
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 import 'config.dart';
 
 class AddFoodScreen extends StatefulWidget {
@@ -52,6 +56,8 @@ class _AddFoodScreenState extends State<AddFoodScreen> with SingleTickerProvider
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   drive.DriveApi? _driveApi;
+  Interpreter? _interpreter; // Biến lưu trữ mô hình TFLite
+  List<String>? _labels; // Danh sách nhãn
 
   // Modern color scheme
   final Color primaryColor = const Color(0xFF0078D7);
@@ -83,6 +89,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with SingleTickerProvider
     _checkUserAuth();
     _fetchInitialData();
     _initGoogleDrive();
+    _loadModel(); // Tải mô hình TFLite
   }
 
   @override
@@ -90,7 +97,92 @@ class _AddFoodScreenState extends State<AddFoodScreen> with SingleTickerProvider
     _nameController.dispose();
     _quantityController.dispose();
     _animationController.dispose();
+    _interpreter?.close(); // Giải phóng mô hình TFLite
     super.dispose();
+  }
+
+  // Tải mô hình TFLite và nhãn
+  Future<void> _loadModel() async {
+    try {
+      _interpreter = await Interpreter.fromAsset('assets/model.tflite');
+      final labelsData = await DefaultAssetBundle.of(context).loadString('assets/labels.txt');
+      _labels = labelsData.split('\n').where((line) => line.isNotEmpty).toList();
+      print('Mô hình và nhãn đã được tải thành công');
+    } catch (e) {
+      _showErrorSnackBar('Lỗi tải mô hình TFLite: $e');
+    }
+  }
+
+  // Hàm xử lý hình ảnh và chạy suy luận
+  Future<String?> _runInference(String imagePath) async {
+    if (_interpreter == null || _labels == null) {
+      _showErrorSnackBar('Mô hình TFLite chưa được tải');
+      return null;
+    }
+
+    try {
+      final imageFile = File(imagePath);
+      final imageBytes = await imageFile.readAsBytes();
+      img.Image? image = img.decodeImage(imageBytes);
+      if (image == null) {
+        _showErrorSnackBar('Không thể giải mã hình ảnh');
+        return null;
+      }
+
+      // Thay đổi kích thước hình ảnh (giả sử mô hình yêu cầu 224x224)
+      image = img.copyResize(image, width: 224, height: 224);
+
+      // Lấy dữ liệu pixel ở định dạng RGBA
+      final input = image.getBytes(); // Mặc định trả về RGBA
+
+      // Chuyển đổi từ RGBA sang RGB (loại bỏ kênh alpha)
+      final rgbInput = Float32List(224 * 224 * 3);
+      for (int i = 0, j = 0; i < input.length; i += 4, j += 3) {
+        rgbInput[j] = input[i] / 255.0;     // R
+        rgbInput[j + 1] = input[i + 1] / 255.0; // G
+        rgbInput[j + 2] = input[i + 2] / 255.0; // B
+      }
+
+      // Định dạng đầu vào cho mô hình
+      final inputShape = _interpreter!.getInputTensor(0).shape;
+      final inputData = rgbInput.reshape(inputShape);
+
+      // Định dạng đầu ra
+      final outputShape = _interpreter!.getOutputTensor(0).shape;
+      final output = List.filled(outputShape.reduce((a, b) => a * b), 0.0).reshape(outputShape);
+
+      // Chạy suy luận
+      _interpreter!.run(inputData, output);
+
+      // Xử lý đầu ra
+      final outputList = (output as List<dynamic>).cast<double>();
+      final maxIndex = outputList.indexOf(outputList.reduce((a, b) => a > b ? a : b));
+      final confidence = outputList[maxIndex];
+      final label = _labels![maxIndex];
+
+      return '$label (Độ tin cậy: ${(confidence * 100).toStringAsFixed(2)}%)';
+    } catch (e) {
+      _showErrorSnackBar('Lỗi nhận diện hình ảnh: $e');
+      return null;
+    }
+  }
+
+  // Tải hình ảnh từ URL (cho Google Drive)
+  Future<String?> _downloadImageFromUrl(String url) async {
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File('${tempDir.path}/temp_image.jpg');
+        await tempFile.writeAsBytes(response.bodyBytes);
+        return tempFile.path;
+      } else {
+        throw Exception('Không thể tải hình ảnh từ Google Drive');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Lỗi tải hình ảnh từ URL: $e');
+      return null;
+    }
   }
 
   Future<void> _initGoogleDrive() async {
@@ -188,11 +280,11 @@ class _AddFoodScreenState extends State<AddFoodScreen> with SingleTickerProvider
           _imagePath = pickedFile.path;
           _aiResult = null;
         });
-        await Future.delayed(const Duration(seconds: 2));
-        if (mounted) {
+        final result = await _runInference(pickedFile.path);
+        if (mounted && result != null) {
           setState(() {
-            _aiResult = 'Rau củ quả (Độ tin cậy: 92%)';
-            _nameController.text = 'Rau củ quả';
+            _aiResult = result;
+            _nameController.text = result.split(' (')[0];
           });
         }
       }
@@ -245,22 +337,27 @@ class _AddFoodScreenState extends State<AddFoodScreen> with SingleTickerProvider
 
           if (selectedFile != null) {
             await _setFilePermissions(selectedFile['id'], accessToken);
-            setState(() {
-              _imagePath = selectedFile['webContentLink'];
-              _image = null;
-              _aiResult = null;
-            });
-            await Future.delayed(const Duration(seconds: 2));
-            if (mounted) {
+            final imagePath = await _downloadImageFromUrl(selectedFile['webContentLink']);
+            if (imagePath != null) {
               setState(() {
-                _aiResult = 'Rau củ quả (Độ tin cậy: 92%)';
-                _nameController.text = 'Rau củ quả';
+                _imagePath = selectedFile['webContentLink'];
+                _image = null;
+                _aiResult = null;
               });
+              final result = await _runInference(imagePath);
+              if (mounted && result != null) {
+                setState(() {
+                  _aiResult = result;
+                  _nameController.text = result.split(' (')[0];
+                });
+              }
             }
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      _showErrorSnackBar('Lỗi chọn ảnh từ Google Drive: $e');
+    }
   }
 
   Future<void> _setFilePermissions(String fileId, String accessToken) async {
@@ -291,11 +388,11 @@ class _AddFoodScreenState extends State<AddFoodScreen> with SingleTickerProvider
           _imagePath = pickedFile.path;
           _aiResult = null;
         });
-        await Future.delayed(const Duration(seconds: 2));
-        if (mounted) {
+        final result = await _runInference(pickedFile.path);
+        if (mounted && result != null) {
           setState(() {
-            _aiResult = 'Rau củ quả (Độ tin cậy: 92%)';
-            _nameController.text = 'Rau củ quả';
+            _aiResult = result;
+            _nameController.text = result.split(' (')[0];
           });
         }
       }

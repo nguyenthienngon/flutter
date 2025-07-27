@@ -38,7 +38,10 @@ dependencies:
   fl_chart: ^0.68.0  # Thêm dòng này
   cached_network_image: ^3.3.1
   shimmer: ^3.0.0
-
+  provider: ^6.0.5
+  table_calendar: ^3.0.9
+  tflite_flutter: ^0.11.0
+  image: ^4.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -53,6 +56,8 @@ flutter:
     - assets/X.jpg
     - assets/img.png
     - assets/credentials.json
+    - assets/model_aug.tflite
+    - assets/labels.txt
   fonts:
     - family: Tahoma
       fonts:
