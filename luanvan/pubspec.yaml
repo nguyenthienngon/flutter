@@ -41,6 +41,7 @@ dependencies:
   provider: ^6.0.5
   table_calendar: ^3.0.9
   tflite_flutter: ^0.11.0
+  firebase_app_check: ^0.3.0 # Thêm Firebase App Check
   image: ^4.2.0
 dev_dependencies:
   flutter_test:
@@ -56,7 +57,7 @@ flutter:
     - assets/X.jpg
     - assets/img.png
     - assets/credentials.json
-    - assets/model_aug.tflite
+    - assets/fruit_vegetable_model.tflite
     - assets/labels.txt
   fonts:
     - family: Tahoma

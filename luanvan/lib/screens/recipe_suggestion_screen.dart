@@ -1330,7 +1330,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       ],
     );
   }
-
   Color _getStatusColor(int expiryDays) {
     if (expiryDays < 0) return _themeColors.errorColor;
     if (expiryDays <= 3) return _themeColors.warningColor;

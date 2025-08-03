@@ -46,13 +46,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     // Logo Animation Controller
     _logoAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 800), // Giảm thời gian để tối ưu hiệu suất
     );
 
     // Content Animation Controller
     _contentAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600), // Giảm thời gian để tối ưu hiệu suất
     );
 
     // Logo Animations
@@ -92,7 +92,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
     // Start animations
     _logoAnimationController.forward();
     Future.delayed(const Duration(milliseconds: 400), () {
-      _contentAnimationController.forward();
+      if (mounted) _contentAnimationController.forward();
     });
   }
 
@@ -104,24 +104,33 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
   }
 
   Future<void> _googleSignIn() async {
+    if (!mounted) return;
     setState(() {
       _isGoogleLoading = true;
     });
 
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn();
-      await googleSignIn.signOut();
+      print('Starting Google Sign-In...');
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        scopes: ['email', 'profile'], // Đảm bảo scopes cần thiết
+      );
+      await googleSignIn.signOut(); // Đăng xuất trước để tránh cache
 
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
+        print('Google Sign-In cancelled by user');
         return;
       }
 
+      print('Google User: ${googleUser.email}');
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        throw Exception('Không thể lấy thông tin xác thực từ Google');
+        throw Exception('Không thể lấy accessToken hoặc idToken từ Google');
       }
+
+      print('Access Token: ${googleAuth.accessToken}');
+      print('ID Token: ${googleAuth.idToken}');
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -129,7 +138,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
       );
 
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-      final idToken = await userCredential.user!.getIdToken();
+      final user = userCredential.user;
+      if (user == null) {
+        throw Exception('Firebase user is null');
+      }
+
+      final idToken = await user.getIdToken();
+      print('Firebase UID: ${user.uid}, ID Token: $idToken');
 
       final response = await http.post(
         Uri.parse('${Config.getNgrokUrl()}/google-signin'),
@@ -140,14 +155,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
         body: jsonEncode({'idToken': idToken}),
       ).timeout(const Duration(seconds: 30));
 
-      final data = jsonDecode(response.body);
+      print('Backend Response: ${response.statusCode} ${response.body}');
 
       if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
         final uid = data['uid'] as String?;
         final token = data['token'] as String?;
 
         if (uid == null || token == null) {
-          throw Exception('Dữ liệu không hợp lệ từ server');
+          throw Exception('Dữ liệu không hợp lệ từ server: uid=$uid, token=$token');
         }
 
         if (mounted) {
@@ -159,11 +175,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
           );
         }
       } else {
-        if (mounted) {
-          _showErrorSnackBar(data['error'] ?? 'Đăng nhập Google thất bại');
-        }
+        throw Exception('Đăng nhập Google thất bại: ${response.body}');
       }
     } catch (e) {
+      print('Error during Google Sign-In: $e');
       if (mounted) {
         _showErrorSnackBar('Lỗi đăng nhập: ${e.toString()}');
       }
@@ -177,14 +192,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.shade600,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    }
   }
 
   @override

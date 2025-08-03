@@ -1,36 +1,36 @@
+apple
+banana
+beetroot
+bell pepper
+cabbage
 capsicum
-sweetcorn
+carrot
+cauliflower
+chilli pepper
+corn
+cucumber
+eggplant
+garlic
+ginger
+grapes
+jalapeno
+kiwi
+lemon
+lettuce
+mango
+onion
 orange
+paprika
+pear
+peas
+pineapple
+pomegranate
+potato
+raddish
+soy beans
+spinach
+sweetcorn
+sweetpotato
 tomato
 turnip
-ginger
-raddish
-pomegranate
-pineapple
-jalepeno
-apple
-carrot
-lettuce
-bell pepper
-eggplant
-beetroot
-kiwi
-pear
-cabbage
-cauliflower
-paprika
-lemon
-sweetpotato
-grapes
-cucumber
-corn
-banana
-garlic
-chilli pepper
 watermelon
-mango
-peas
-onion
-potato
-spinach
-soy beans
