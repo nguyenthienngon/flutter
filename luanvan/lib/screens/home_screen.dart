@@ -702,7 +702,83 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
+  Future<void> _showDeleteFridgeDialog(Map<String, dynamic> fridge) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_rounded, color: warningColor),
+            const SizedBox(width: 8),
+            const Text('Xác nhận xóa'),
+          ],
+        ),
+        content: Text('Bạn có chắc chắn muốn xóa tủ lạnh "${fridge['name']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Hủy', style: TextStyle(color: currentTextSecondaryColor)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: errorColor),
+            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
 
+    if (confirmed == true) {
+      await _deleteFridge(fridge['id']);
+    }
+  }
+  Future<void> _updateFridge(String fridgeId, String newName) async {
+    try {
+      final url = Uri.parse('${Config.getNgrokUrl()}/update_fridge/$fridgeId');
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'userId': widget.uid,
+          'name': newName,
+        }),
+      );
+      if (response.statusCode == 200) {
+        _showSuccessSnackBar('Đã cập nhật tên tủ lạnh thành công!');
+        await _fetchFridges(); // Làm mới danh sách tủ lạnh
+      } else {
+        final data = jsonDecode(response.body);
+        _showErrorSnackBar('Lỗi khi cập nhật tủ lạnh: ${data['error'] ?? 'Không xác định'}');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Lỗi khi cập nhật tủ lạnh: $e');
+    }
+  }
+  Future<void> _deleteFridge(String fridgeId) async {
+    try {
+      final url = Uri.parse('${Config.getNgrokUrl()}/delete_fridge/$fridgeId?userId=${Uri.encodeComponent(widget.uid)}');
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+      if (response.statusCode == 200) {
+        _showSuccessSnackBar('Đã xóa tủ lạnh thành công!');
+        await _fetchFridges(); // Làm mới danh sách tủ lạnh
+      } else {
+        final data = jsonDecode(response.body);
+        _showErrorSnackBar('Lỗi khi xóa tủ lạnh: ${data['error'] ?? 'Không xác định'}');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Lỗi khi xóa tủ lạnh: $e');
+    }
+  }
   Future<void> _showAreaManagementDialog() async {
     await showDialog(
       context: context,
@@ -823,6 +899,179 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  Future<List<Map<String, dynamic>>> _fetchFridgeUsers(String fridgeId) async {
+    try {
+      final url = Uri.parse('${Config.getNgrokUrl()}/fridges/$fridgeId/get_users?userId=${Uri.encodeComponent(widget.uid)}');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final users = List<Map<String, dynamic>>.from(data['users'] ?? []);
+        return users;
+      } else {
+        throw Exception('Failed to fetch fridge users: ${response.body}');
+      }
+    } catch (e) {
+      print('Error fetching fridge users: $e');
+      _showErrorSnackBar('Lỗi khi tải danh sách người dùng: $e');
+      return [];
+    }
+  }
+  Future<void> _removeUserFromFridge(String fridgeId, String userIdToRemove) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${Config.getNgrokUrl()}/fridges/$fridgeId/remove_user'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({
+          'ownerId': widget.uid,
+          'userId': userIdToRemove,
+        }),
+      );
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _showSuccessSnackBar('Đã xóa người dùng khỏi tủ lạnh!');
+      } else {
+        _showErrorSnackBar('Lỗi khi xóa người dùng: ${data['error'] ?? 'Không xác định'}');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Lỗi khi xóa người dùng: $e');
+    }
+  }
+
+  Future<void> _showFridgeUsersDialog() async {
+    if (_selectedFridgeId == null) {
+      _showErrorSnackBar('Vui lòng chọn một tủ lạnh trước.');
+      return;
+    }
+    final users = await _fetchFridgeUsers(_selectedFridgeId!);
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.group_rounded, color: primaryColor),
+            const SizedBox(width: 8),
+            const Text('Quản lý người dùng'),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Người dùng của $_selectedFridgeName',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: currentTextPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (users.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    'Chưa có người dùng nào',
+                    style: TextStyle(color: currentTextSecondaryColor),
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: users.length,
+                  itemBuilder: (context, index) {
+                    final user = users[index];
+                    final isOwner = user['role'] == 'owner';
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: currentSurfaceColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isOwner ? primaryColor : Colors.grey.withOpacity(0.3),
+                        ),
+                      ),
+                      child: ListTile(
+                        leading: Icon(
+                          isOwner ? Icons.person : Icons.person_outline,
+                          color: isOwner ? primaryColor : currentTextSecondaryColor,
+                        ),
+                        title: Text(
+                          user['name'] ?? 'Unknown',
+                          style: TextStyle(
+                            color: currentTextPrimaryColor,
+                            fontWeight: isOwner ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                        subtitle: Text(
+                          isOwner ? 'Chủ sở hữu' : 'Người được chia sẻ',
+                          style: TextStyle(color: currentTextSecondaryColor),
+                        ),
+                        trailing: !isOwner
+                            ? IconButton(
+                          icon: Icon(Icons.delete, color: errorColor, size: 20),
+                          onPressed: () => _showDeleteUserDialog(user['uid'], user['name'] ?? 'Unknown'),
+                        )
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Đóng', style: TextStyle(color: currentTextSecondaryColor)),
+          ),
+        ],
+      ),
+    );
+  }
+  Future<void> _showDeleteUserDialog(String userId, String email) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_rounded, color: warningColor),
+            const SizedBox(width: 8),
+            const Text('Xác nhận xóa'),
+          ],
+        ),
+        content: Text('Bạn có chắc chắn muốn xóa "$email" khỏi tủ lạnh "$_selectedFridgeName"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Hủy', style: TextStyle(color: currentTextSecondaryColor)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: errorColor),
+            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _removeUserFromFridge(_selectedFridgeId!, userId);
+    }
+  }
+
   Future<void> _showEditFridgeDialog(Map<String, dynamic> fridge) async {
     final controller = TextEditingController(text: fridge['name']);
     await showDialog(
@@ -905,7 +1154,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
               try {
                 final response = await http.put(
-                  Uri.parse('${Config.getNgrokUrl()}/update_area/${area['id']}'),
+                  Uri.parse('${Config.getNgrokUrl()}/update_area/${area['id']}?userId=${Uri.encodeComponent(widget.uid)}'),
                   headers: {
                     'Content-Type': 'application/json',
                     'Authorization': 'Bearer ${widget.token}',
@@ -921,7 +1170,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   _showSuccessSnackBar('Đã cập nhật khu vực thành công!');
                   Navigator.pop(context);
                 } else {
-                  _showErrorSnackBar('Lỗi khi cập nhật khu vực');
+                  _showErrorSnackBar('Lỗi khi cập nhật khu vực: ${response.body}');
                 }
               } catch (e) {
                 _showErrorSnackBar('Lỗi khi cập nhật khu vực: $e');
@@ -933,63 +1182,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ],
       ),
     );
-  }
-
-  Future<void> _showDeleteFridgeDialog(Map<String, dynamic> fridge) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.warning_rounded, color: warningColor),
-            const SizedBox(width: 8),
-            const Text('Xác nhận xóa'),
-          ],
-        ),
-        content: Text('Bạn có chắc chắn muốn xóa tủ lạnh "${fridge['name']}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Hủy', style: TextStyle(color: currentTextSecondaryColor)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: errorColor),
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        final response = await http.delete(
-          Uri.parse('${Config.getNgrokUrl()}/delete_fridge/${fridge['id']}'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${widget.token}',
-          },
-        );
-
-        if (response.statusCode == 200) {
-          await _fetchFridges();
-          if (_selectedFridgeId == fridge['id']) {
-            setState(() {
-              _selectedFridgeId = _fridges.isNotEmpty ? _fridges[0]['id'] : null;
-              _selectedFridgeName = _fridges.isNotEmpty ? _fridges[0]['name'] : '';
-            });
-            await _fetchStorageAreas();
-            await _fetchStorageLogs(page: 0);
-          }
-          _showSuccessSnackBar('Đã xóa tủ lạnh thành công!');
-        } else {
-          _showErrorSnackBar('Lỗi khi xóa tủ lạnh');
-        }
-      } catch (e) {
-        _showErrorSnackBar('Lỗi khi xóa tủ lạnh: $e');
-      }
-    }
   }
 
   Future<void> _showDeleteAreaDialog(Map<String, dynamic> area) async {
@@ -1022,7 +1214,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (confirmed == true) {
       try {
         final response = await http.delete(
-          Uri.parse('${Config.getNgrokUrl()}/delete_area/${area['id']}'),
+          Uri.parse('${Config.getNgrokUrl()}/delete_area/${area['id']}?userId=${Uri.encodeComponent(widget.uid)}'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ${widget.token}',
@@ -1040,14 +1232,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           }
           _showSuccessSnackBar('Đã xóa khu vực thành công!');
         } else {
-          _showErrorSnackBar('Lỗi khi xóa khu vực');
+          _showErrorSnackBar('Lỗi khi xóa khu vực: ${response.body}');
         }
       } catch (e) {
         _showErrorSnackBar('Lỗi khi xóa khu vực: $e');
       }
     }
   }
-
   Future<void> _showAddFridgeDialog() async {
     final controller = TextEditingController();
     bool? result = await showDialog<bool>(
@@ -1376,6 +1567,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 },
               ),
               ListTile(
+                leading: Icon(Icons.group_rounded, color: primaryColor),
+                title: const Text('Quản lý người dùng'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _showFridgeUsersDialog();
+                },
+              ),
+              ListTile(
                 leading: Icon(Icons.person_add_rounded, color: primaryColor),
                 title: const Text('Mời người dùng'),
                 onTap: () async {
@@ -1403,7 +1602,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
-
   void _selectFridge(String? fridgeId, String fridgeName) {
     setState(() {
       _selectedFridgeId = fridgeId;
