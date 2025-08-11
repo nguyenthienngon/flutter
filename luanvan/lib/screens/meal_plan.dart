@@ -80,18 +80,19 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
   final Map<String, bool> _dayLoading = {};
   final Map<String, Map<String, dynamic>> _recipeCache = {};
   final List<Map<String, dynamic>> _userFridges = [];
-  String? _selectedFridgeId;
 
+  String? _selectedFridgeId;
   bool _isLoading = false;
   bool _showAdvancedOptions = false;
+  bool _showCalendar = true;
   String? _errorMessage;
   String? _selectedDiet;
   String _selectedTimeFrame = 'week';
   int _targetCalories = 2000;
   bool _useFridgeIngredients = false;
-
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
+  List<String> _sortedDays = [];
 
   static const _diets = ['Vegetarian', 'Vegan', 'Gluten Free', 'Ketogenic', 'Pescatarian'];
   static const _timeFrames = ['day', 'week'];
@@ -133,15 +134,18 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+
     _headerSlideAnimation = Tween<Offset>(
       begin: const Offset(0, -1),
       end: Offset.zero,
     ).animate(
       CurvedAnimation(parent: _headerAnimationController, curve: Curves.easeOut),
     );
+
     _headerAnimationController.forward();
     _animationController.forward();
   }
@@ -173,9 +177,11 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/get_user_fridges?userId=${widget.userId}'),
           headers: {'Content-Type': 'application/json'},
         );
+
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           final fridges = List<Map<String, dynamic>>.from(data['fridges'] ?? []);
+
           if (mounted) {
             setState(() {
               _userFridges
@@ -184,6 +190,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
                   'fridgeId': fridge['fridgeId']?.toString() ?? '',
                   'name': fridge['fridgeName']?.toString() ?? fridge['name']?.toString() ?? 'Tủ lạnh ${fridge['fridgeId'] ?? 'không tên'}',
                 }));
+
               if (widget.fridgeId != null) {
                 _selectedFridgeId = widget.fridgeId;
               } else if (_userFridges.isNotEmpty) {
@@ -209,9 +216,11 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/get_favorite_recipes?userId=${widget.userId}'),
           headers: {'Content-Type': 'application/json'},
         );
+
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           final favorites = List<Map<String, dynamic>>.from(data['favoriteRecipes'] ?? []);
+
           if (mounted) {
             setState(() {
               _favoriteRecipeIds
@@ -230,6 +239,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
 
   Future<List<Map<String, dynamic>>> _fetchFridgeIngredients() async {
     if (!_useFridgeIngredients || _selectedFridgeId == null) return [];
+
     try {
       final response = await _httpClient.post(
         Uri.parse('$_ngrokUrl/get_user_ingredients'),
@@ -239,6 +249,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           'fridgeId': _selectedFridgeId,
         }),
       );
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return List<Map<String, dynamic>>.from(data['ingredients'] ?? []);
@@ -257,18 +268,21 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/get_all_calendar_meals?userId=${widget.userId}'),
           headers: {'Content-Type': 'application/json'},
         );
+
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           final mealsByDate = <String, List<Map<String, dynamic>>>{};
           final daysWithRecipes = <String>{};
+
           for (var meal in (data['meals'] as List<dynamic>? ?? [])) {
             final date = meal['date'] as String? ?? '';
-            if (date.isNotEmpty) {
-              mealsByDate[date] = List<Map<String, dynamic>>.from(meal['meals'] ?? []);
-              daysWithRecipes.add(date);
-              _addedToCalendar[date] = true;
-            }
+            if (date.isEmpty) continue;
+
+            mealsByDate[date] = List<Map<String, dynamic>>.from(meal['meals'] ?? []);
+            daysWithRecipes.add(date);
+            _addedToCalendar[date] = true;
           }
+
           if (mounted) {
             setState(() {
               _allCalendarMeals
@@ -290,39 +304,47 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
 
   Future<void> _addToCalendar(Map<String, dynamic> recipe) async {
     if (_isLoading) return;
+
     final selectedDate = await _selectCalendarDate();
     if (selectedDate == null) {
       _showSnackBar('Không chọn ngày.', _theme.warning);
       return;
     }
+
     await _executeWithLoading(
           () async {
         final dateStr = selectedDate.toIso8601String().split('T')[0];
-        final payload = {
-          'userId': widget.userId,
-          'date': dateStr,
-          'meals': [recipe],
-        };
-        final response = await _httpClient.post(
-          Uri.parse('$_ngrokUrl/add_to_calendar'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(payload),
-        );
-        if (response.statusCode == 200) {
-          if (mounted) {
-            setState(() {
-              _allCalendarMeals[dateStr] = (_allCalendarMeals[dateStr] ?? [])..add(recipe);
-              _calendarDaysWithRecipes.add(dateStr);
-              _addedToCalendar[dateStr] = true;
-            });
-          }
-          _showSnackBar('Đã thêm vào lịch cho ngày $dateStr!', _theme.success);
-        } else {
-          throw Exception('Không thể thêm vào lịch: ${response.body}');
-        }
+        await _addMealToSpecificDate(dateStr, recipe);
       },
       errorMessage: 'Không thể thêm vào lịch.',
     );
+  }
+
+  Future<void> _addMealToSpecificDate(String dateStr, Map<String, dynamic> recipe) async {
+    final payload = {
+      'userId': widget.userId,
+      'date': dateStr,
+      'meals': [recipe],
+    };
+
+    final response = await _httpClient.post(
+      Uri.parse('$_ngrokUrl/add_to_calendar'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode == 200) {
+      if (mounted) {
+        setState(() {
+          _allCalendarMeals[dateStr] = (_allCalendarMeals[dateStr] ?? [])..add(recipe);
+          _calendarDaysWithRecipes.add(dateStr);
+          _addedToCalendar[dateStr] = true;
+        });
+      }
+      _showSnackBar('Đã thêm vào lịch cho ngày $dateStr!', _theme.success);
+    } else {
+      throw Exception('Không thể thêm vào lịch: ${response.body}');
+    }
   }
 
   Future<void> _addDayToCalendar(DateTime date) async {
@@ -331,22 +353,25 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
 
     await _executeWithLoading(
           () async {
-        final mealsForDay = _allCalendarMeals[dateKey] ?? [];
+        var mealsForDay = _allCalendarMeals[dateKey] ?? [];
         if (mealsForDay.isEmpty) {
-          final meals = _mealPlan['week']?[dateKey] ?? [];
+          mealsForDay = _mealPlan['week']?[dateKey] ?? [];
+          final payload = {
+            'userId': widget.userId,
+            'date': dateKey,
+            'meals': mealsForDay,
+          };
+
           final response = await _httpClient.post(
             Uri.parse('$_ngrokUrl/add_to_calendar'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'userId': widget.userId,
-              'date': dateKey,
-              'meals': meals,
-            }),
+            body: jsonEncode(payload),
           );
+
           if (response.statusCode == 200) {
             if (mounted) {
               setState(() {
-                _allCalendarMeals[dateKey] = meals;
+                _allCalendarMeals[dateKey] = mealsForDay;
                 _calendarDaysWithRecipes.add(dateKey);
                 _addedToCalendar[dateKey] = true;
               });
@@ -390,6 +415,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             'date': dateKey,
             'meals': dayMeals,
           };
+
           final response = await _httpClient.post(
             Uri.parse('$_ngrokUrl/add_to_calendar'),
             headers: {'Content-Type': 'application/json'},
@@ -426,6 +452,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/delete_meal_from_calendar?userId=${widget.userId}&date=$date&recipeId=$recipeId'),
           headers: {'Content-Type': 'application/json'},
         );
+
         if (response.statusCode == 200) {
           if (mounted) {
             setState(() {
@@ -461,6 +488,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/delete_all_calendar_meals?userId=${widget.userId}'),
           headers: {'Content-Type': 'application/json'},
         );
+
         if (response.statusCode == 200) {
           if (mounted) {
             setState(() {
@@ -488,22 +516,43 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
 
     await _executeWithLoading(
           () async {
-        final response = await _httpClient.delete(
-          Uri.parse('$_ngrokUrl/delete_meal_from_calendar?userId=${widget.userId}&date=$dateKey'),
-          headers: {'Content-Type': 'application/json'},
-        );
-        if (response.statusCode == 200) {
-          if (mounted) {
-            setState(() {
-              _calendarDaysWithRecipes.remove(dateKey);
-              _allCalendarMeals.remove(dateKey);
-              _addedToCalendar[dateKey] = false;
-            });
+        var mealsForDay = _allCalendarMeals[dateKey] ?? [];
+        if (mealsForDay.isEmpty && _calendarDaysWithRecipes.contains(dateKey)) {
+          final response = await _httpClient.get(
+            Uri.parse('$_ngrokUrl/get_calendar_meals?userId=${widget.userId}&date=$dateKey'),
+            headers: {'Content-Type': 'application/json'},
+          );
+
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            mealsForDay = List<Map<String, dynamic>>.from(data['meals'] ?? []);
+          } else {
+            throw Exception('Không thể tải công thức lịch: ${response.body}');
           }
-          _showSnackBar('Đã xóa ngày ${DateFormat('d MMMM, yyyy', 'vi_VN').format(day)} khỏi lịch!', _theme.success);
-        } else {
-          throw Exception('Không thể xóa khỏi lịch: ${response.body}');
         }
+
+        for (var meal in mealsForDay) {
+          final recipeId = meal['id']?.toString() ?? '';
+          if (recipeId.isNotEmpty) {
+            final deleteResponse = await _httpClient.delete(
+              Uri.parse('$_ngrokUrl/delete_meal_from_calendar?userId=${widget.userId}&date=$dateKey&recipeId=$recipeId'),
+              headers: {'Content-Type': 'application/json'},
+            );
+
+            if (deleteResponse.statusCode != 200) {
+              throw Exception('Không thể xóa bữa ăn $recipeId: ${deleteResponse.body}');
+            }
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _calendarDaysWithRecipes.remove(dateKey);
+            _allCalendarMeals.remove(dateKey);
+            _addedToCalendar[dateKey] = false;
+          });
+        }
+        _showSnackBar('Đã xóa ngày ${DateFormat('d MMMM, yyyy', 'vi_VN').format(day)} khỏi lịch!', _theme.success);
       },
       errorMessage: 'Không thể xóa khỏi lịch.',
     );
@@ -515,6 +564,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
     await _executeWithLoading(
           () async {
         final ingredients = _useFridgeIngredients && _selectedFridgeId != null ? await _fetchFridgeIngredients() : [];
+
         final payload = {
           'userId': widget.userId,
           'diet': _selectedDiet ?? '',
@@ -582,6 +632,8 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             setState(() {
               _mealPlan['week'] = processedWeek;
               _seenRecipeIds['week'] = processedWeek.values.expand((e) => e).map((r) => r['id'].toString()).toList();
+              _sortedDays = processedWeek.keys.toList()..sort();
+
               if (processedWeek.isNotEmpty) {
                 try {
                   _selectedDay = DateTime.parse(processedWeek.keys.first);
@@ -594,6 +646,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
               }
             });
           }
+
           _showSnackBar(
             'Đã tạo kế hoạch ${_timeFrameTranslations[_selectedTimeFrame]} với ${processedWeek.values.fold<int>(0, (sum, e) => sum + e.length)} công thức!',
             _theme.success,
@@ -616,6 +669,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'userId': widget.userId}),
           );
+
           if (response.statusCode == 200) {
             if (mounted) {
               setState(() {
@@ -630,8 +684,8 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
         } else {
           final meals = _mealPlan['week'];
           if (meals == null) throw Exception('Kế hoạch bữa ăn chưa được khởi tạo');
-          final recipe = meals.values.expand((e) => e).firstWhere((r) => r['id'].toString() == recipeId, orElse: () => {});
 
+          final recipe = meals.values.expand((e) => e).firstWhere((r) => r['id'].toString() == recipeId, orElse: () => {});
           if (recipe.isEmpty) throw Exception('Không tìm thấy công thức');
 
           final payload = {
@@ -655,6 +709,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(payload),
           );
+
           if (response.statusCode == 200) {
             if (mounted) {
               setState(() {
@@ -688,7 +743,8 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           'name': e['name']?.toString() ?? '',
           'amount': e['amount'] ?? 0,
           'unit': e['unit']?.toString() ?? '',
-        })).toList() ?? [];
+        })).toList() ??
+            [];
 
         if (missingIngredients.isEmpty) {
           _showSnackBar('Không có nguyên liệu để thêm.', _theme.success);
@@ -807,6 +863,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             'relevanceScore': recipe['relevanceScore']?.toDouble() ?? 0.0,
           };
         }
+
         if (detailedRecipe['instructions'] is List) {
           detailedRecipe['instructions'] = (detailedRecipe['instructions'] as List).join('\n');
         }
@@ -861,6 +918,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             Uri.parse('$_ngrokUrl/get_calendar_meals?userId=${widget.userId}&date=$dateKey'),
             headers: {'Content-Type': 'application/json'},
           );
+
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body);
             meals = List<Map<String, dynamic>>.from(data['meals'] ?? []);
@@ -882,6 +940,16 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
       return;
     }
 
+    // Sort meals by time slot
+    final timeSlotOrder = {
+      'morning': 0,
+      'afternoon': 1,
+      'evening': 2,
+    };
+    meals.sort((a, b) {
+      return (timeSlotOrder[a['timeSlot']] ?? 3).compareTo(timeSlotOrder[b['timeSlot']] ?? 3);
+    });
+
     if (mounted) {
       showModalBottomSheet(
         context: context,
@@ -898,38 +966,19 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             theme: _theme,
             isLoading: _isLoading,
             onRecipeTap: _showRecipeDetails,
+            onDeleteMeal: _deleteCalendarMeal,
+            onMoveMeal: (String oldDate, String recipeId, Map<String, dynamic> recipe) async {
+              final newDate = await _selectCalendarDate();
+              if (newDate != null) {
+                final newDateKey = newDate.toIso8601String().split('T')[0];
+                await _deleteCalendarMeal(oldDate, recipeId);
+                await _addMealToSpecificDate(newDateKey, recipe);
+              }
+            },
           ),
         ),
       );
     }
-  }
-
-  void _showCalendar() {
-    _loadAllCalendarMeals().then((_) {
-      if (mounted) {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (context) => DraggableScrollableSheet(
-            initialChildSize: 0.7,
-            minChildSize: 0.5,
-            maxChildSize: 0.9,
-            expand: false,
-            builder: (context, scrollController) => _CalendarSheet(
-              meals: _allCalendarMeals,
-              theme: _theme,
-              isLoading: _isLoading,
-              calendarDaysWithRecipes: _calendarDaysWithRecipes,
-              onRecipeTap: _showRecipeDetails,
-              onAddToCalendar: _addToCalendar,
-              onDeleteMeal: _deleteCalendarMeal,
-              onDeleteDay: _removeDayFromCalendar,
-            ),
-          ),
-        );
-      }
-    });
   }
 
   Future<DateTime?> _selectCalendarDate() async {
@@ -991,6 +1040,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
         if (clearError) _errorMessage = null;
       });
     }
+
     try {
       await action();
     } catch (e, stackTrace) {
@@ -1040,6 +1090,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
   Widget _buildRecipeTile(Map<String, dynamic> recipe) {
     final recipeId = recipe['id']?.toString() ?? '';
     final isFavorite = _favoriteRecipeIds.contains(recipeId);
+
     return Dismissible(
       key: Key(recipeId),
       direction: DismissDirection.horizontal,
@@ -1210,11 +1261,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
     final nutrientColors = [_theme.primary, _theme.accent, _theme.success, _theme.secondary];
 
     final filteredNutrients = nutrients
-        .where((n) => n is Map<String, dynamic> &&
-        keyNutrients.contains(n['name']) &&
-        n['amount'] is num &&
-        n['amount'] > 0 &&
-        n['unit'] is String)
+        .where((n) => n is Map<String, dynamic> && keyNutrients.contains(n['name']) && n['amount'] is num && n['amount'] > 0 && n['unit'] is String)
         .toList();
 
     final nutrientData = {
@@ -1426,129 +1473,259 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
     return screenWidth < 400 ? baseSize - 2 : baseSize;
   }
 
+  void _toggleCalendar() {
+    setState(() {
+      _showCalendar = !_showCalendar;
+      if (_showCalendar) {
+        _showCalendarSheet();
+      }
+    });
+  }
+
+  void _showCalendarSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: true,
+        builder: (context, scrollController) => _CalendarSheet(
+          meals: _allCalendarMeals,
+          theme: _theme,
+          isLoading: _isLoading,
+          calendarDaysWithRecipes: _calendarDaysWithRecipes,
+          onRecipeTap: _showRecipeDetails,
+          onAddToCalendar: _addToCalendar,
+          onDeleteMeal: _deleteCalendarMeal,
+          onDeleteDay: _removeDayFromCalendar,
+        ),
+      ),
+    ).whenComplete(() {
+      if (mounted) {
+        setState(() {
+          _showCalendar = false;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final meals = _mealPlan['week'] ?? {};
-    final dateKey = _selectedDay.toIso8601String().split('T')[0];
-    final mealsForSelectedDay = meals[dateKey] ?? [];
-    final isDayInCalendar = _calendarDaysWithRecipes.contains(dateKey);
+    final DateTime now = DateTime.now();
+    final DateTime firstDay = now.subtract(const Duration(days: 30)); // 1-month range
+    final DateTime lastDay = now.add(const Duration(days: 30));
 
     return Scaffold(
       backgroundColor: _theme.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            // Modern Header
-            SlideTransition(
-              position: _headerSlideAnimation,
-              child: Container(
-                margin: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [_theme.primary, _theme.accent],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Modern Header
+              SlideTransition(
+                position: _headerSlideAnimation,
+                child: Container(
+                  margin: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [_theme.primary, _theme.accent],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _theme.primary.withOpacity(0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _theme.primary.withOpacity(0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      right: -50,
-                      top: -50,
-                      child: Container(
-                        width: 150,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.1),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      right: -20,
-                      bottom: -30,
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.05),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Row(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                              onPressed: () => Navigator.pop(context),
-                            ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: -50,
+                        top: -50,
+                        child: Container(
+                          width: 150,
+                          height: 150,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.1),
                           ),
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    gradient: RadialGradient(
-                                      colors: [_theme.secondary, Colors.white.withOpacity(0.3)],
-                                      radius: 0.8,
+                        ),
+                      ),
+                      Positioned(
+                        right: -20,
+                        bottom: -30,
+                        child: Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.05),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Row(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ),
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      gradient: RadialGradient(
+                                        colors: [_theme.secondary, Colors.white.withOpacity(0.3)],
+                                        radius: 0.8,
+                                      ),
+                                      shape: BoxShape.circle,
                                     ),
-                                    shape: BoxShape.circle,
                                   ),
-
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Kế hoạch bữa ăn',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Kế hoạch bữa ăn',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: IconButton(
+                                icon: Icon(
+                                  _showCalendar ? Icons.calendar_today : Icons.calendar_today_outlined,
+                                  color: Colors.white,
                                 ),
-                              ],
+                                onPressed: _toggleCalendar,
+                                tooltip: _showCalendar ? 'Ẩn lịch' : 'Hiện lịch',
+                              ),
                             ),
-                          ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: IconButton(
-                              icon: Icon(Icons.calendar_today, color: Colors.white),
-                              onPressed: _showCalendar,
-                              tooltip: 'Xem lịch bữa ăn',
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: FadeTransition(
+              FadeTransition(
                 opacity: _fadeAnimation,
                 child: Column(
                   children: [
+                    // Small Weekly Calendar at the top
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: _theme.surface,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(_theme.isDarkMode ? 77 : 13),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TableCalendar(
+                        firstDay: firstDay,
+                        lastDay: lastDay,
+                        focusedDay: _focusedDay,
+                        locale: 'vi_VN',
+                        calendarFormat: CalendarFormat.week,
+                        headerVisible: false,
+                        rowHeight: 60,
+                        daysOfWeekHeight: 30,
+                        headerStyle: HeaderStyle(
+                          formatButtonVisible: false,
+                          titleCentered: true,
+                          titleTextStyle: TextStyle(
+                            color: _theme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          leftChevronIcon: Icon(Icons.chevron_left, color: _theme.primary),
+                          rightChevronIcon: Icon(Icons.chevron_right, color: _theme.primary),
+                        ),
+                        calendarStyle: CalendarStyle(
+                          todayDecoration: BoxDecoration(
+                            color: _theme.primary.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          selectedDecoration: BoxDecoration(
+                            color: _theme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          markerDecoration: BoxDecoration(
+                            color: _theme.accent,
+                            shape: BoxShape.circle,
+                          ),
+                          outsideTextStyle: TextStyle(color: _theme.textSecondary.withOpacity(0.5)),
+                          defaultTextStyle: TextStyle(color: _theme.textPrimary),
+                          weekendTextStyle: TextStyle(color: _theme.textPrimary),
+                          holidayTextStyle: TextStyle(color: _theme.error),
+                        ),
+                        daysOfWeekStyle: DaysOfWeekStyle(
+                          weekdayStyle: TextStyle(color: _theme.textSecondary),
+                          weekendStyle: TextStyle(color: _theme.textSecondary),
+                        ),
+                        eventLoader: (day) {
+                          final dateKey = day.toIso8601String().split('T')[0];
+                          return _allCalendarMeals[dateKey] ?? [];
+                        },
+                        onDaySelected: (selectedDay, focusedDay) {
+                          setState(() {
+                            _focusedDay = focusedDay;
+                          });
+                          final dateKey = selectedDay.toIso8601String().split('T')[0];
+                          if (_calendarDaysWithRecipes.contains(dateKey)) {
+                            _showRecipesForDay(selectedDay);
+                          }
+                        },
+                        calendarBuilders: CalendarBuilders(
+                          markerBuilder: (context, day, events) {
+                            if (events.isNotEmpty) {
+                              return Positioned(
+                                right: 1,
+                                bottom: 1,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: _theme.accent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              );
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                    ),
                     _HeaderSection(
                       theme: _theme,
                       isLoading: _isLoading,
@@ -1573,16 +1750,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
                       onGeneratePlan: _generateWeeklyMealPlan,
                       onAddAllToCalendar: _addAllToCalendar,
                       onDeleteAllCalendar: _deleteAllCalendarMeals,
-                      focusedDay: _focusedDay,
-                      selectedDay: _selectedDay,
-                      calendarDaysWithRecipes: _calendarDaysWithRecipes,
-                      onDaySelected: (selectedDay, focusedDay) {
-                        setState(() {
-                          _selectedDay = selectedDay;
-                          _focusedDay = focusedDay;
-                        });
-                        _showRecipesForDay(selectedDay);
-                      },
                     ),
                     if (_errorMessage != null)
                       Container(
@@ -1593,30 +1760,157 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
                           style: TextStyle(color: _theme.error, fontSize: 14),
                         ),
                       ),
-                    Expanded(
-                      child: _isLoading
-                          ? _ShimmerList(theme: _theme)
-                          : mealsForSelectedDay.isEmpty
-                          ? _EmptyState(
-                        theme: _theme,
-                        showCalendarButton: _calendarDaysWithRecipes.contains(dateKey),
-                        onShowCalendar: () => _showRecipesForDay(_selectedDay),
-                      )
-                          : ListView.builder(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: mealsForSelectedDay.length,
-                        itemBuilder: (context, index) => _buildRecipeTile(mealsForSelectedDay[index]),
-                      ),
+                    _isLoading
+                        ? _ShimmerList(theme: _theme)
+                        : meals.isEmpty
+                        ? _EmptyState(
+                      theme: _theme,
+                      showCalendarButton: _calendarDaysWithRecipes.isNotEmpty,
+                      onShowCalendar: _toggleCalendar,
+                    )
+                        : CustomScrollView(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      slivers: [
+                        for (String dateKey in _sortedDays)
+                          ...[
+                            SliverPersistentHeader(
+                              pinned: false,
+                              floating: true,
+                              delegate: _DayHeaderDelegate(
+                                dateKey: dateKey,
+                                theme: _theme,
+                                mealsCount: meals[dateKey]?.length ?? 0,
+                                isLoading: _dayLoading[dateKey] ?? false,
+                                onAddDay: () => _addDayToCalendar(DateTime.parse(dateKey)),
+                              ),
+                            ),
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                    (context, index) {
+                                  final dayMeals = meals[dateKey] ?? [];
+                                  if (index >= dayMeals.length) return null;
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    child: _buildRecipeTile(dayMeals[index]),
+                                  );
+                                },
+                                childCount: meals[dateKey]?.length ?? 0,
+                              ),
+                            ),
+                          ],
+                      ],
                     ),
-                    if (mealsForSelectedDay.isNotEmpty && !isDayInCalendar)
-                      _FooterActions(
-                        theme: _theme,
-                        isLoading: _dayLoading[dateKey] ?? false,
-                        onAddToCalendar: () => _addDayToCalendar(_selectedDay),
-                        onRemoveFromCalendar: () => _removeDayFromCalendar(_selectedDay),
-                      ),
                   ],
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final String dateKey;
+  final ThemeColors theme;
+  final int mealsCount;
+  final bool isLoading;
+  final VoidCallback onAddDay;
+
+  _DayHeaderDelegate({
+    required this.dateKey,
+    required this.theme,
+    required this.mealsCount,
+    required this.isLoading,
+    required this.onAddDay,
+  });
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final date = DateTime.parse(dateKey);
+    final dayName = DateFormat('EEEE', 'vi_VN').format(date);
+    final dayDate = DateFormat('d/M/yyyy', 'vi_VN').format(date);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [theme.primary.withOpacity(0.9), theme.accent.withOpacity(0.9)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    dayName.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    dayDate,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '$mealsCount công thức',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IconButton(
+                icon: isLoading
+                    ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+                    : const Icon(Icons.add, color: Colors.white, size: 20),
+                onPressed: isLoading ? null : onAddDay,
+                tooltip: 'Thêm tất cả vào lịch',
               ),
             ),
           ],
@@ -1624,6 +1918,15 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
       ),
     );
   }
+
+  @override
+  double get maxExtent => 80.0;
+
+  @override
+  double get minExtent => 80.0;
+
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) => true;
 }
 
 class _RecipeImage extends StatelessWidget {
@@ -1869,8 +2172,7 @@ class _RecipeDetailsSheet extends StatelessWidget {
                                     child: Center(
                                       child: CircularProgressIndicator(
                                         value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                            (loadingProgress.expectedTotalBytes ?? 1)
+                                            ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
                                             : null,
                                         valueColor: AlwaysStoppedAnimation<Color>(theme.primary),
                                       ),
@@ -2286,6 +2588,13 @@ class _CalendarSheet extends StatelessWidget {
                                 theme: theme,
                                 isLoading: isLoading,
                                 onRecipeTap: onRecipeTap,
+                                onDeleteMeal: onDeleteMeal, // Pass the onDeleteMeal function
+                                onMoveMeal: (oldDate, recipeId, recipe) {
+                                  // Implement move meal logic, possibly calling a method from parent
+                                  // For now, we'll just call onDeleteMeal to remove from current date
+                                  onDeleteMeal(oldDate, recipeId);
+                                  // You may want to add logic to add the meal to a new date
+                                },
                               ),
                             ),
                           );
@@ -2390,7 +2699,6 @@ class _CalendarSheet extends StatelessWidget {
     );
   }
 }
-
 class _HeaderSection extends StatelessWidget {
   final ThemeColors theme;
   final bool isLoading;
@@ -2412,10 +2720,6 @@ class _HeaderSection extends StatelessWidget {
   final VoidCallback onGeneratePlan;
   final VoidCallback onAddAllToCalendar;
   final VoidCallback onDeleteAllCalendar;
-  final DateTime focusedDay;
-  final DateTime selectedDay;
-  final Set<String> calendarDaysWithRecipes;
-  final Function(DateTime, DateTime) onDaySelected;
 
   const _HeaderSection({
     required this.theme,
@@ -2438,113 +2742,49 @@ class _HeaderSection extends StatelessWidget {
     required this.onGeneratePlan,
     required this.onAddAllToCalendar,
     required this.onDeleteAllCalendar,
-    required this.focusedDay,
-    required this.selectedDay,
-    required this.calendarDaysWithRecipes,
-    required this.onDaySelected,
   });
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final fontSize = screenWidth < 400 ? 13.0 : 15.0;
+    final fontSize = screenWidth < 360 ? 12.0 : screenWidth < 400 ? 13.0 : 14.0;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TableCalendar(
-            firstDay: DateTime.now().subtract(const Duration(days: 7)),
-            lastDay: DateTime.now().add(const Duration(days: 7)),
-            focusedDay: focusedDay,
-            selectedDayPredicate: (day) => isSameDay(day, selectedDay),
-            locale: 'vi_VN',
-            calendarFormat: CalendarFormat.week,
-            headerStyle: HeaderStyle(
-              formatButtonVisible: false,
-              titleTextStyle: TextStyle(color: theme.textPrimary, fontSize: fontSize + 2, fontWeight: FontWeight.bold),
-              leftChevronIcon: Icon(Icons.chevron_left, color: theme.primary),
-              rightChevronIcon: Icon(Icons.chevron_right, color: theme.primary),
-            ),
-            calendarStyle: CalendarStyle(
-              todayDecoration: BoxDecoration(
-                color: theme.primary.withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              selectedDecoration: BoxDecoration(
-                color: theme.primary,
-                shape: BoxShape.circle,
-              ),
-              markerDecoration: BoxDecoration(
-                color: theme.accent,
-                shape: BoxShape.circle,
-              ),
-              outsideTextStyle: TextStyle(color: theme.textSecondary.withOpacity(0.5)),
-              defaultTextStyle: TextStyle(color: theme.textPrimary),
-              weekendTextStyle: TextStyle(color: theme.textPrimary),
-            ),
-            daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: TextStyle(color: theme.textSecondary),
-              weekendStyle: TextStyle(color: theme.textSecondary),
-            ),
-            eventLoader: (day) {
-              final dateKey = day.toIso8601String().split('T')[0];
-              return calendarDaysWithRecipes.contains(dateKey) ? [{}] : [];
-            },
-            onDaySelected: onDaySelected,
-            calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, day, events) {
-                if (events.isNotEmpty) {
-                  return Positioned(
-                    right: 1,
-                    bottom: 1,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: theme.accent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  );
-                }
-                return null;
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
                     color: theme.background.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: theme.secondary.withOpacity(0.2)),
                   ),
                   child: DropdownButtonFormField<String>(
                     value: selectedTimeFrame,
                     decoration: InputDecoration(
                       labelText: 'Khung thời gian',
-                      labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500),
+                      labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500, fontSize: fontSize),
                       filled: true,
                       fillColor: Colors.transparent,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
                     items: timeFrameTranslations.entries
                         .map((entry) => DropdownMenuItem(
@@ -2557,157 +2797,171 @@ class _HeaderSection extends StatelessWidget {
                         .toList(),
                     onChanged: isLoading ? null : onTimeFrameChanged,
                     dropdownColor: theme.surface,
-                    style: TextStyle(color: theme.textPrimary),
-                    icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.background.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: theme.secondary.withOpacity(0.2)),
-                  ),
-                  child: DropdownButtonFormField<String>(
-                    value: selectedDiet,
-                    decoration: InputDecoration(
-                      labelText: 'Chế độ ăn',
-                      labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500),
-                      filled: true,
-                      fillColor: Colors.transparent,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    ),
-                    items: [
-                      DropdownMenuItem(value: null, child: Text('Không chọn', style: TextStyle(color: theme.textPrimary, fontSize: fontSize))),
-                      ...diets.map((diet) => DropdownMenuItem(
-                        value: diet,
-                        child: Text(
-                          diet == 'Vegetarian'
-                              ? 'Ăn chay'
-                              : diet == 'Vegan'
-                              ? 'Thuần chay'
-                              : diet == 'Gluten Free'
-                              ? 'Không gluten'
-                              : diet == 'Ketogenic'
-                              ? 'Keto'
-                              : 'Ăn cá',
-                          style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
-                        ),
-                      )),
-                    ],
-                    onChanged: isLoading ? null : onDietChanged,
-                    dropdownColor: theme.surface,
-                    style: TextStyle(color: theme.textPrimary),
-                    icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary),
+                    style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                    icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: fontSize + 4),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              color: theme.background.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.secondary.withOpacity(0.2)),
-            ),
-            child: TextFormField(
-              initialValue: targetCalories.toString(),
-              decoration: InputDecoration(
-                labelText: 'Mục tiêu Calo',
-                labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500),
-                filled: true,
-                fillColor: Colors.transparent,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                suffixText: 'kcal',
-                suffixStyle: TextStyle(color: theme.textSecondary, fontSize: fontSize),
-              ),
-              keyboardType: TextInputType.number,
-              onChanged: onCaloriesChanged,
-              enabled: !isLoading,
-              style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           TextButton.icon(
             onPressed: onToggleAdvancedOptions,
             icon: Icon(
               showAdvancedOptions ? Icons.expand_less : Icons.expand_more,
               color: theme.primary,
+              size: fontSize + 4,
             ),
             label: Text(
               showAdvancedOptions ? 'Ẩn tùy chọn nâng cao' : 'Hiển thị tùy chọn nâng cao',
               style: TextStyle(color: theme.primary, fontSize: fontSize + 1, fontWeight: FontWeight.w600),
             ),
           ),
-          if (showAdvancedOptions) ...[
-            Container(
-              decoration: BoxDecoration(
-                color: theme.background.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: theme.secondary.withOpacity(0.2)),
-              ),
-              child: CheckboxListTile(
-                title: Text(
-                  'Sử dụng nguyên liệu từ tủ lạnh',
-                  style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
-                ),
-                value: useFridgeIngredients,
-                onChanged: isLoading ? null : onUseFridgeChanged,
-                activeColor: theme.primary,
-                checkColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (useFridgeIngredients && userFridges.isNotEmpty)
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.background.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: theme.secondary.withOpacity(0.2)),
-                ),
-                child: DropdownButtonFormField<String>(
-                  value: selectedFridgeId,
-                  decoration: InputDecoration(
-                    labelText: 'Chọn tủ lạnh',
-                    labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500),
-                    filled: true,
-                    fillColor: Colors.transparent,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: showAdvancedOptions
+                ? Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: theme.background.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: theme.secondary.withOpacity(0.2)),
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          value: selectedDiet,
+                          decoration: InputDecoration(
+                            labelText: 'Chế độ ăn',
+                            labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500, fontSize: fontSize),
+                            filled: true,
+                            fillColor: Colors.transparent,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          items: [
+                            DropdownMenuItem(value: null, child: Text('Không chọn', style: TextStyle(color: theme.textPrimary, fontSize: fontSize))),
+                            ...diets.map((diet) => DropdownMenuItem(
+                              value: diet,
+                              child: Text(
+                                diet == 'Vegetarian'
+                                    ? 'Ăn chay'
+                                    : diet == 'Vegan'
+                                    ? 'Thuần chay'
+                                    : diet == 'Gluten Free'
+                                    ? 'Không gluten'
+                                    : diet == 'Ketogenic'
+                                    ? 'Keto'
+                                    : 'Ăn cá',
+                                style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                              ),
+                            )),
+                          ],
+                          onChanged: isLoading ? null : onDietChanged,
+                          dropdownColor: theme.surface,
+                          style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                          icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: fontSize + 4),
+                        ),
+                      ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: theme.background.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: theme.secondary.withOpacity(0.2)),
                   ),
-                  items: userFridges
-                      .map<DropdownMenuItem<String>>((fridge) => DropdownMenuItem<String>(
-                    value: fridge['fridgeId'] as String,
-                    child: Text(
-                      fridge['name'] as String,
+                  child: TextFormField(
+                    initialValue: targetCalories.toString(),
+                    decoration: InputDecoration(
+                      labelText: 'Mục tiêu Calo',
+                      labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500, fontSize: fontSize),
+                      filled: true,
+                      fillColor: Colors.transparent,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      suffixText: 'kcal',
+                      suffixStyle: TextStyle(color: theme.textSecondary, fontSize: fontSize),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: onCaloriesChanged,
+                    enabled: !isLoading,
+                    style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: theme.background.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: theme.secondary.withOpacity(0.2)),
+                  ),
+                  child: CheckboxListTile(
+                    title: Text(
+                      'Sử dụng nguyên liệu từ tủ lạnh',
                       style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
                     ),
-                  ))
-                      .toList(),
-                  onChanged: isLoading ? null : onFridgeChanged,
-                  dropdownColor: theme.surface,
-                  style: TextStyle(color: theme.textPrimary),
-                  icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary),
+                    value: useFridgeIngredients,
+                    onChanged: isLoading ? null : onUseFridgeChanged,
+                    activeColor: theme.primary,
+                    checkColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
                 ),
-              ),
-            const SizedBox(height: 16),
-          ],
+                const SizedBox(height: 8),
+                if (useFridgeIngredients && userFridges.isNotEmpty)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: theme.background.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: theme.secondary.withOpacity(0.2)),
+                    ),
+                    child: DropdownButtonFormField<String>(
+                      value: selectedFridgeId,
+                      decoration: InputDecoration(
+                        labelText: 'Chọn tủ lạnh',
+                        labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500, fontSize: fontSize),
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      items: userFridges
+                          .map<DropdownMenuItem<String>>((fridge) => DropdownMenuItem<String>(
+                        value: fridge['fridgeId'] as String,
+                        child: Text(
+                          fridge['name'] as String,
+                          style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                        ),
+                      ))
+                          .toList(),
+                      onChanged: isLoading ? null : onFridgeChanged,
+                      dropdownColor: theme.surface,
+                      style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                      icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary, size: fontSize + 4),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+            )
+                : const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -2718,12 +2972,12 @@ class _HeaderSection extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
                         color: theme.primary.withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -2732,8 +2986,8 @@ class _HeaderSection extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: Text(
                       isLoading ? 'Đang tạo...' : 'Tạo kế hoạch',
@@ -2746,7 +3000,7 @@ class _HeaderSection extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
@@ -2755,12 +3009,12 @@ class _HeaderSection extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
                         color: theme.accent.withOpacity(0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -2769,8 +3023,8 @@ class _HeaderSection extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: Text(
                       isLoading ? 'Đang thêm...' : 'Thêm tất cả vào lịch',
@@ -2785,7 +3039,7 @@ class _HeaderSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
@@ -2794,12 +3048,12 @@ class _HeaderSection extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
                   color: theme.error.withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 6),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -2808,8 +3062,8 @@ class _HeaderSection extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: Text(
                 isLoading ? 'Đang xóa...' : 'Xóa toàn bộ lịch',
@@ -2906,215 +3160,114 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final DateTime now = DateTime.now();
+    final DateTime firstDay = now.subtract(const Duration(days: 365)); // Extended to 1 year before
+    final DateTime lastDay = now.add(const Duration(days: 365)); // Extended to 1 year after
+
     return Center(
-      child: Container(
-        margin: const EdgeInsets.all(40),
-        padding: const EdgeInsets.all(40),
-        decoration: BoxDecoration(
-          color: theme.surface,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(theme.isDarkMode ? 0.3 : 0.05),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [theme.primary.withOpacity(0.2), theme.accent.withOpacity(0.2)],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Icon(
-                Icons.restaurant_menu_outlined,
-                size: 64,
-                color: theme.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Chưa có kế hoạch bữa ăn',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: theme.textPrimary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Tạo kế hoạch mới hoặc xem lịch!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: theme.textSecondary,
-              ),
-            ),
-            if (showCalendarButton) ...[
-              const SizedBox(height: 24),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [theme.primary, theme.accent],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.primary.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: onShowCalendar,
-                  icon: const Icon(Icons.calendar_today, color: Colors.white),
-                  label: const Text(
-                    'Xem lịch',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
+      child: SingleChildScrollView( // Added to prevent overflow
+        child: Container(
+          margin: const EdgeInsets.all(40),
+          padding: const EdgeInsets.all(40),
+          decoration: BoxDecoration(
+            color: theme.surface,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(theme.isDarkMode ? 0.3 : 0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
             ],
-          ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [theme.primary.withOpacity(0.2), theme.accent.withOpacity(0.2)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.restaurant_menu_outlined,
+                  size: 64,
+                  color: theme.primary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Chưa có kế hoạch bữa ăn',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: theme.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Tạo kế hoạch mới hoặc xem lịch!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: theme.textSecondary,
+                ),
+              ),
+              if (showCalendarButton) ...[
+                const SizedBox(height: 24),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [theme.primary, theme.accent],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: onShowCalendar,
+                    icon: const Icon(Icons.calendar_today, color: Colors.white),
+                    label: const Text(
+                      'Xem lịch',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _FooterActions extends StatelessWidget {
-  final ThemeColors theme;
-  final bool isLoading;
-  final VoidCallback onAddToCalendar;
-  final VoidCallback onRemoveFromCalendar;
-
-  const _FooterActions({
-    required this.theme,
-    required this.isLoading,
-    required this.onAddToCalendar,
-    required this.onRemoveFromCalendar,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [theme.primary, theme.accent],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.primary.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: isLoading ? null : onAddToCalendar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: Text(
-                  isLoading ? 'Đang thêm...' : 'Thêm vào lịch',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [theme.error, theme.warning],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.error.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: isLoading ? null : onRemoveFromCalendar,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: Text(
-                  isLoading ? 'Đang xóa...' : 'Xóa khỏi lịch',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DayRecipesSheet extends StatelessWidget {
+class _DayRecipesSheet extends StatefulWidget {
   final DateTime day;
   final List<Map<String, dynamic>> meals;
   final ThemeColors theme;
   final bool isLoading;
   final Function(Map<String, dynamic>) onRecipeTap;
+  final Function(String, String) onDeleteMeal;
+  final Function(String, String, Map<String, dynamic>) onMoveMeal;
 
   const _DayRecipesSheet({
     required this.day,
@@ -3122,17 +3275,52 @@ class _DayRecipesSheet extends StatelessWidget {
     required this.theme,
     required this.isLoading,
     required this.onRecipeTap,
+    required this.onDeleteMeal,
+    required this.onMoveMeal,
   });
+
+  @override
+  _DayRecipesSheetState createState() => _DayRecipesSheetState();
+}
+
+class _DayRecipesSheetState extends State<_DayRecipesSheet> {
+  late List<Map<String, dynamic>> _meals;
+
+  @override
+  void initState() {
+    super.initState();
+    _meals = List.from(widget.meals);
+  }
+
+  Future<DateTime?> _selectNewDate() async {
+    return showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) => Theme(
+        data: ThemeData(
+          colorScheme: ColorScheme.light(
+            primary: widget.theme.primary,
+            onPrimary: Colors.white,
+            surface: widget.theme.surface,
+            onSurface: widget.theme.textPrimary,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: theme.surface,
+        color: widget.theme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(theme.isDarkMode ? 0.3 : 0.1),
+            color: Colors.black.withOpacity(widget.theme.isDarkMode ? 0.3 : 0.1),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -3145,65 +3333,121 @@ class _DayRecipesSheet extends StatelessWidget {
             height: 5,
             margin: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: theme.textSecondary.withOpacity(0.3),
+              color: widget.theme.textSecondary.withOpacity(0.3),
               borderRadius: BorderRadius.circular(2.5),
             ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Text(
-              'Bữa ăn ngày ${DateFormat('d MMMM, yyyy', 'vi_VN').format(day)}',
+              'Bữa ăn ngày ${DateFormat('d MMMM, yyyy', 'vi_VN').format(widget.day)}',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: theme.textPrimary,
+                color: widget.theme.textPrimary,
               ),
             ),
           ),
           Expanded(
-            child: isLoading
-                ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(theme.primary)))
+            child: widget.isLoading
+                ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(widget.theme.primary)))
                 : ListView.builder(
               padding: const EdgeInsets.all(20),
-              itemCount: meals.length,
+              itemCount: _meals.length,
               itemBuilder: (context, index) {
-                final recipe = meals[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: theme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                final recipe = _meals[index];
+                final recipeId = recipe['id']?.toString() ?? '';
+                final dateKey = widget.day.toIso8601String().split('T')[0];
+
+                return Dismissible(
+                  key: Key(recipeId),
+                  direction: DismissDirection.horizontal,
+                  background: Container(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.only(left: 16),
+                    decoration: BoxDecoration(
+                      color: widget.theme.warning,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.swap_horiz, color: Colors.white),
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: _RecipeImage(imageUrl: recipe['image']?.toString(), theme: theme),
-                    title: Text(
-                      recipe['title']?.toString() ?? 'Không có tiêu đề',
-                      style: TextStyle(
-                        color: theme.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  secondaryBackground: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16),
+                    decoration: BoxDecoration(
+                      color: widget.theme.error,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    subtitle: Text(
-                      recipe['timeSlot'] != null
-                          ? {'morning': 'Sáng', 'afternoon': 'Trưa', 'evening': 'Tối'}[recipe['timeSlot']] ?? 'Khác'
-                          : 'Không xác định',
-                      style: TextStyle(
-                        color: theme.textSecondary,
-                        fontSize: 14,
-                      ),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  confirmDismiss: (direction) async {
+                    if (direction == DismissDirection.startToEnd) { // move
+                      final newDate = await _selectNewDate();
+                      if (newDate != null) {
+                        widget.onMoveMeal(dateKey, recipeId, recipe);
+                        setState(() {
+                          _meals.removeAt(index);
+                        });
+                      }
+                      return false; // don't dismiss if move, but since we remove manually
+                    } else { // delete
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Xác nhận xóa'),
+                          content: const Text('Bạn có chắc chắn muốn xóa công thức này khỏi ngày?'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Xóa')),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        widget.onDeleteMeal(dateKey, recipeId);
+                        setState(() {
+                          _meals.removeAt(index);
+                        });
+                      }
+                      return false; // handle dismiss manually
+                    }
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: widget.theme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(widget.theme.isDarkMode ? 77 : 13),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    onTap: () => onRecipeTap(recipe),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      leading: _RecipeImage(imageUrl: recipe['image']?.toString(), theme: widget.theme),
+                      title: Text(
+                        recipe['title']?.toString() ?? 'Không có tiêu đề',
+                        style: TextStyle(
+                          color: widget.theme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        recipe['timeSlot'] != null
+                            ? {'morning': 'Sáng', 'afternoon': 'Trưa', 'evening': 'Tối'}[recipe['timeSlot']] ?? 'Khác'
+                            : 'Không xác định',
+                        style: TextStyle(
+                          color: widget.theme.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      onTap: () => widget.onRecipeTap(recipe),
+                    ),
                   ),
                 );
               },

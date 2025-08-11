@@ -1517,6 +1517,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  // Trong _acceptInvitation
   Future<void> _acceptInvitation(String invitationId) async {
     try {
       final response = await http.post(
@@ -1531,9 +1532,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         await _fetchFridges();
         await _fetchPendingInvitations();
+        // Lấy fridgeId từ invitation
+        final invitation = _pendingInvitations.firstWhere((inv) => inv['id'] == invitationId);
+        final newFridgeId = invitation['fridgeId'] as String;
         setState(() {
-          _selectedFridgeId = 'default_fridge_5989a234-9f75-40a8-8297-9c76128eb067';
-          _selectedFridgeName = 'SamSung Smart';
+          _selectedFridgeId = newFridgeId;
+          _selectedFridgeName = invitation['fridgeName'] as String? ?? 'Tủ lạnh mới';
         });
         await _fetchStorageAreas();
         await _fetchStorageLogs(page: 0);
