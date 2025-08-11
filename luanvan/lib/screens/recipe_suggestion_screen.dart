@@ -12,27 +12,26 @@ import 'favorite_recipes_screen.dart';
 
 class ThemeColors {
   final bool isDarkMode;
-
   ThemeColors({required this.isDarkMode});
 
-  Color get primaryColor => isDarkMode ? Colors.blue[700]! : Colors.blue[500]!;
-  Color get accentColor => isDarkMode ? Colors.cyan[600]! : Colors.cyan[400]!;
-  Color get secondaryColor => isDarkMode ? Colors.grey[600]! : Colors.grey[400]!;
-  Color get errorColor => isDarkMode ? Colors.red[400]! : Colors.red[600]!;
-  Color get warningColor => isDarkMode ? Colors.amber[400]! : Colors.amber[600]!;
-  Color get successColor => isDarkMode ? Colors.green[400]! : Colors.green[600]!;
-  Color get currentBackgroundColor =>
-      isDarkMode ? Colors.grey[900]! : Colors.white;
-  Color get currentSurfaceColor => isDarkMode ? Colors.grey[800]! : Colors.grey[50]!;
-  Color get currentTextPrimaryColor =>
-      isDarkMode ? Colors.white : Colors.grey[900]!;
-  Color get currentTextSecondaryColor =>
-      isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
+  // Using hex values for consistency
+  Color get primary => isDarkMode ? const Color(0xFF1976D2) : const Color(0xFF2196F3); // Blue
+  Color get accent => isDarkMode ? const Color(0xFF00BCD4) : const Color(0xFF00ACC1); // Cyan
+  Color get secondary => isDarkMode ? const Color(0xFF757575) : const Color(0xFF9E9E9E); // Grey
+  Color get error => isDarkMode ? const Color(0xFFD32F2F) : const Color(0xFFF44336); // Red
+  Color get warning => isDarkMode ? const Color(0xFFFBC02D) : const Color(0xFFFFC107); // Amber
+  Color get success => isDarkMode ? const Color(0xFF388E3C) : const Color(0xFF4CAF50); // Green
+
+  Color get background => isDarkMode ? const Color(0xFF121212) : const Color(0xFFFFFFFF);
+  Color get surface => isDarkMode ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5);
+  Color get textPrimary => isDarkMode ? const Color(0xFFFFFFFF) : const Color(0xFF212121);
+  Color get textSecondary => isDarkMode ? const Color(0xFFBDBDBD) : const Color(0xFF757575);
+
   List<Color> get chartColors => [
-    Colors.blue[400]!,
-    Colors.red[400]!,
-    Colors.green[400]!,
-    Colors.yellow[400]!,
+    primary,
+    error,
+    success,
+    secondary,
   ];
 }
 
@@ -40,7 +39,6 @@ class RecipeSuggestionScreen extends StatefulWidget {
   final List<Map<String, dynamic>> foodItems;
   final String userId;
   final bool isDarkMode;
-
   const RecipeSuggestionScreen({
     super.key,
     required this.foodItems,
@@ -56,9 +54,11 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late AnimationController _headerAnimationController;
+  late AnimationController _searchButtonController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _slideAnimation;
   late Animation<Offset> _headerSlideAnimation;
+  late Animation<double> _searchButtonScaleAnimation;
 
   late List<Map<String, dynamic>> _processedFoodItems;
   Map<String, List<Map<String, dynamic>>> _mealPlan = {};
@@ -68,6 +68,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
     'evening': [],
     'other': [],
   };
+
   bool _isLoading = false;
   bool _isAdvancedOptionsVisible = false;
   String? _errorMessage;
@@ -98,15 +99,14 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
     _initializeData();
   }
 
-  Future<void> _initializeData() async {
-    try {
-      await _loadFavoriteRecipes();
-      await _suggestRecipes();
-    } catch (e, stackTrace) {
-      _logger.e('Initialization error: $e', stackTrace: stackTrace);
-      _showSnackBar(
-          'Không thể khởi tạo dữ liệu. Vui lòng thử lại.', _themeColors.errorColor);
-    }
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _headerAnimationController.dispose();
+    _searchButtonController.dispose();
+    _clearOffsetCache();
+    _httpClient.close();
+    super.dispose();
   }
 
   void _initializeAnimations() {
@@ -116,6 +116,10 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
     );
     _headerAnimationController = AnimationController(
       duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _searchButtonController = AnimationController(
+      duration: const Duration(milliseconds: 200),
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -133,9 +137,22 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         curve: Curves.easeOut,
       ),
     );
-
+    _searchButtonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _searchButtonController, curve: Curves.easeInOut),
+    );
     _headerAnimationController.forward();
     _animationController.forward();
+  }
+
+  Future<void> _initializeData() async {
+    try {
+      await _loadFavoriteRecipes();
+      await _suggestRecipes();
+    } catch (e, stackTrace) {
+      _logger.e('Initialization error: $e', stackTrace: stackTrace);
+      _showSnackBar(
+          'Không thể khởi tạo dữ liệu. Vui lòng thử lại.', _themeColors.error);
+    }
   }
 
   List<Map<String, dynamic>> _processFoodItems() {
@@ -144,7 +161,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         .map((item) {
       int expiryDays = 999999;
       final expiryDateData = item['expiryDate'];
-
       if (expiryDateData != null) {
         try {
           DateTime? expiryDate;
@@ -154,7 +170,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
           } else if (expiryDateData is DateTime) {
             expiryDate = expiryDateData;
           }
-
           if (expiryDate != null) {
             expiryDays = expiryDate.difference(DateTime.now()).inDays;
           } else {
@@ -168,7 +183,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       } else {
         _logger.w('No expiry date for ${item['foodName'] ?? 'Unknown item'}');
       }
-
       return {
         'id': item['id']?.toString() ?? '',
         'name': item['foodName']?.toString() ?? 'Nguyên liệu không xác định',
@@ -238,9 +252,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       'userId': userId,
       'random': DateTime.now().millisecondsSinceEpoch + Random().nextInt(10000),
     };
-
     _logger.d('Sending payload to API: ${jsonEncode(payload)}');
-
     try {
       final response = await client.post(
         Uri.parse('$ngrokUrl/suggest_simple_recipes'),
@@ -250,25 +262,20 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         },
         body: jsonEncode(payload),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final recipes = List<Map<String, dynamic>>.from(data['recipes'] ?? []);
         _logger.i('Received ${recipes.length} recipes from backend');
-
         if (recipes.isEmpty) {
           throw Exception('Không tìm thấy công thức');
         }
-
         final newRecipes = recipes.where((recipe) {
           final recipeId = recipe['id']?.toString();
           return recipeId != null && !excludeRecipeIds.contains(recipeId);
         }).toList();
-
         if (newRecipes.isEmpty) {
           throw Exception('Không tìm thấy công thức mới sau khi lọc');
         }
-
         final processedMeals = _processRecipes(newRecipes, excludeRecipeIds);
         return processedMeals;
       } else {
@@ -295,7 +302,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       'evening': [],
       'other': [],
     };
-
     for (var recipe in recipes) {
       if (recipe is! Map<String, dynamic> ||
           recipe['id'] == null ||
@@ -314,8 +320,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
           'unit': e['unit']?.toString() ?? '',
         })).toList() ??
             [],
-        'ingredientsMissing':
-        (recipe['ingredientsMissing'] as List<dynamic>?)?.map((e) => ({
+        'ingredientsMissing': (recipe['ingredientsMissing'] as List<dynamic>?)?.map((e) => ({
           'name': e['name']?.toString() ?? '',
           'amount': e['amount'] ?? 0,
           'unit': e['unit']?.toString() ?? '',
@@ -338,7 +343,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       mealsByTimeFrame[timeSlot]!.add(processedRecipe);
       _logger.i('Added recipe ${processedRecipe['title']} to $timeSlot');
     }
-
     if (mealsByTimeFrame['morning']!.isEmpty ||
         mealsByTimeFrame['afternoon']!.isEmpty ||
         mealsByTimeFrame['evening']!.isEmpty) {
@@ -354,7 +358,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         index++;
       }
     }
-
     _logger.i(
         'Meal plan after processing: ${mealsByTimeFrame.map((key, value) => MapEntry(key, value.length))}');
     return mealsByTimeFrame;
@@ -365,7 +368,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       _logger.i('Already suggesting recipes, skipping new request');
       return;
     }
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -391,12 +393,12 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         });
         _showSnackBar(
             'Bạn cần cung cấp ít nhất 3 nguyên liệu để gợi ý công thức.',
-            _themeColors.errorColor);
+            _themeColors.error);
         return;
       } else {
         _showSnackBar(
             'Sử dụng ${ingredientsToUse.length} nguyên liệu: ${ingredientsToUse.join(', ')}',
-            _themeColors.successColor);
+            _themeColors.success);
       }
 
       final meals = await _fetchRecipes(
@@ -416,17 +418,16 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
           _seenRecipeIds[timeSlot] = recipes.map((r) => r['id'].toString()).toList();
         });
       });
-
       _showSnackBar(
           'Tìm thấy ${meals.values.fold(0, (sum, meals) => sum + meals.length)} công thức mới!',
-          _themeColors.successColor);
+          _themeColors.success);
     } catch (e, stackTrace) {
       _logger.e('Error suggesting recipes: $e', stackTrace: stackTrace);
       setState(() {
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
         _mealPlan = {};
       });
-      _showSnackBar(_errorMessage!, _themeColors.errorColor);
+      _showSnackBar(_errorMessage!, _themeColors.error);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -457,7 +458,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
 
       if (response.statusCode == 200) {
         await _suggestRecipes(force: true);
-        _showSnackBar('Làm mới công thức thành công!', _themeColors.successColor);
+        _showSnackBar('Làm mới công thức thành công!', _themeColors.success);
       } else {
         throw Exception('Không thể làm mới cache công thức: ${response.body}');
       }
@@ -466,7 +467,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       setState(() {
         _errorMessage = 'Không thể làm mới công thức: $e';
       });
-      _showSnackBar('Không thể làm mới công thức: $e', _themeColors.errorColor);
+      _showSnackBar('Không thể làm mới công thức: $e', _themeColors.error);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -475,7 +476,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
   Future<void> _toggleFavorite(String recipeId, bool isFavorite) async {
     _logger.i('Toggling favorite status for recipeId: $recipeId, isFavorite: $isFavorite');
     setState(() => _isLoading = true);
-
     try {
       if (isFavorite) {
         String? favoriteRecipeId;
@@ -489,7 +489,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
             }
           }
         }
-
         if (favoriteRecipeId == null) {
           final response = await _httpClient.get(
             Uri.parse('$_ngrokUrl/get_favorite_recipes?userId=${widget.userId}'),
@@ -505,9 +504,8 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
             favoriteRecipeId = favorite['id']?.toString();
           }
         }
-
         if (favoriteRecipeId == null) {
-          _showSnackBar('Công thức không có trong danh sách yêu thích.', _themeColors.errorColor);
+          _showSnackBar('Công thức không có trong danh sách yêu thích.', _themeColors.error);
           return;
         }
 
@@ -532,7 +530,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
             }
           });
           await _loadFavoriteRecipes();
-          _showSnackBar('Đã xóa khỏi danh sách yêu thích!', _themeColors.successColor);
+          _showSnackBar('Đã xóa khỏi danh sách yêu thích!', _themeColors.success);
         } else {
           throw Exception('Không thể xóa công thức yêu thích: ${response.body}');
         }
@@ -550,9 +548,8 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
             }
           }
         }
-
         if (recipe == null) {
-          _showSnackBar('Không tìm thấy công thức.', _themeColors.errorColor);
+          _showSnackBar('Không tìm thấy công thức.', _themeColors.error);
           return;
         }
 
@@ -592,14 +589,14 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
             }
           });
           await _loadFavoriteRecipes();
-          _showSnackBar('Đã thêm vào danh sách yêu thích!', _themeColors.successColor);
+          _showSnackBar('Đã thêm vào danh sách yêu thích!', _themeColors.success);
         } else {
           throw Exception('Không thể thêm công thức yêu thích: ${response.body}');
         }
       }
     } catch (e, stackTrace) {
       _logger.e('Error updating favorite recipe: $e', stackTrace: stackTrace);
-      _showSnackBar('Không thể cập nhật công thức yêu thích: $e', _themeColors.errorColor);
+      _showSnackBar('Không thể cập nhật công thức yêu thích: $e', _themeColors.error);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -619,7 +616,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       _logger.i('Already adding to shopping list, skipping new request');
       return;
     }
-
     setState(() => _isLoading = true);
     try {
       final missingIngredients = (recipe['ingredientsMissing'] as List<dynamic>? ?? [])
@@ -629,26 +625,29 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         'unit': e['unit']?.toString() ?? '',
       })
           .toList();
+
       if (missingIngredients.isEmpty) {
         _showSnackBar(
-            'Không có nguyên liệu nào cần thêm vào danh sách mua sắm.', _themeColors.successColor);
+            'Không có nguyên liệu nào cần thêm vào danh sách mua sắm.', _themeColors.success);
         return;
       }
+
       final response = await _httpClient.post(
         Uri.parse('$_ngrokUrl/place_order'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'userId': widget.userId, 'items': missingIngredients}),
       );
+
       if (response.statusCode == 200) {
         _showSnackBar(
             'Đã thêm ${missingIngredients.length} nguyên liệu vào danh sách mua sắm!',
-            _themeColors.successColor);
+            _themeColors.success);
       } else {
         throw Exception('Không thể thêm vào danh sách mua sắm: ${response.body}');
       }
     } catch (e, stackTrace) {
       _logger.e('Error adding to shopping list: $e', stackTrace: stackTrace);
-      _showSnackBar('Không thể thêm vào danh sách mua sắm: $e', _themeColors.errorColor);
+      _showSnackBar('Không thể thêm vào danh sách mua sắm: $e', _themeColors.error);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -661,7 +660,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         content: Row(
           children: [
             Icon(
-              backgroundColor == _themeColors.errorColor
+              backgroundColor == _themeColors.error
                   ? Icons.error_outline
                   : Icons.check_circle_outline,
               color: Colors.white,
@@ -691,218 +690,252 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         expand: false,
         builder: (context, scrollController) => Container(
           decoration: BoxDecoration(
-            color: _themeColors.currentSurfaceColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            color: _themeColors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.2 : 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
-          child: SingleChildScrollView(
-            controller: scrollController,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: widget.isDarkMode ? Colors.grey[700] : Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setDialogState) {
+              return SingleChildScrollView(
+                controller: scrollController,
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 48,
+                          height: 5,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: _themeColors.secondary.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(2.5),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Tùy chọn nâng cao',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: _themeColors.currentTextPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Nguyên liệu có sẵn',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _themeColors.currentTextPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (_processedFoodItems.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: widget.isDarkMode ? Colors.grey[700] : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Không có nguyên liệu trong tủ lạnh.',
+                      Text(
+                        'Tùy chọn nâng cao',
                         style: TextStyle(
-                            color: _themeColors.currentTextSecondaryColor,
-                            fontSize: 14),
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: _themeColors.textPrimary,
+                        ),
                       ),
-                    )
-                  else
-                    SizedBox(
-                      height: 250,
-                      child: ListView.builder(
-                        itemCount: _processedFoodItems.length,
-                        itemBuilder: (context, index) {
-                          final item = _processedFoodItems[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            decoration: BoxDecoration(
-                              color: item['selected']
-                                  ? _themeColors.primaryColor.withOpacity(0.1)
-                                  : _themeColors.currentSurfaceColor,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: item['selected']
-                                    ? _themeColors.primaryColor
-                                    : widget.isDarkMode
-                                    ? Colors.grey[700]!
-                                    : Colors.grey[300]!,
-                                width: item['selected'] ? 2 : 1,
-                              ),
-                            ),
-                            child: ListTile(
-                              leading: Container(
-                                width: 36,
-                                height: 36,
+                      const SizedBox(height: 16),
+                      Text(
+                        'Nguyên liệu có sẵn',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _themeColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_processedFoodItems.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _themeColors.background,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _themeColors.secondary.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            'Không có nguyên liệu trong tủ lạnh.',
+                            style: TextStyle(
+                                color: _themeColors.textSecondary, fontSize: 15),
+                          ),
+                        )
+                      else
+                        SizedBox(
+                          height: 280,
+                          child: ListView.builder(
+                            itemCount: _processedFoodItems.length,
+                            itemBuilder: (context, index) {
+                              final item = _processedFoodItems[index];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
                                 decoration: BoxDecoration(
-                                  color:
-                                  _getStatusColor(item['expiryDays']).withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: item['selected']
+                                      ? _themeColors.primary.withOpacity(0.1)
+                                      : _themeColors.surface,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: item['selected']
+                                        ? _themeColors.primary
+                                        : _themeColors.secondary.withOpacity(0.4),
+                                    width: item['selected'] ? 2 : 1,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black
+                                          .withOpacity(_themeColors.isDarkMode ? 0.1 : 0.03),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                child: Icon(
-                                  Icons.fastfood,
-                                  color: _getStatusColor(item['expiryDays']),
-                                  size: 18,
+                                child: ListTile(
+                                  contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  leading: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: _getStatusColor(item['expiryDays']).withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      Icons.fastfood,
+                                      color: _getStatusColor(item['expiryDays']),
+                                      size: 24,
+                                    ),
+                                  ),
+                                  title: Text(
+                                    item['name'],
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: _themeColors.textPrimary,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'Khu vực: ${item['area']}',
+                                    style: TextStyle(
+                                        color: _themeColors.textSecondary, fontSize: 13),
+                                  ),
+                                  trailing: Checkbox(
+                                    value: item['selected'],
+                                    onChanged: (value) {
+                                      setDialogState(() {
+                                        item['selected'] = value ?? false;
+                                      });
+                                    },
+                                    activeColor: _themeColors.primary,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              title: Text(
-                                item['name'],
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: _themeColors.currentTextPrimaryColor,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              subtitle: Text(
-                                'Khu vực: ${item['area']}',
-                                style: TextStyle(
-                                    color: _themeColors.currentTextSecondaryColor,
-                                    fontSize: 12),
-                              ),
-                              trailing: Checkbox(
-                                value: item['selected'],
-                                onChanged: (value) {
-                                  setState(() {
-                                    item['selected'] = value ?? false;
-                                  });
-                                },
-                                activeColor: _themeColors.primaryColor,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
+                              );
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Thời gian chuẩn bị tối đa (phút)',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _themeColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: _themeColors.secondary.withOpacity(0.5),
                             ),
-                          );
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: _themeColors.secondary.withOpacity(0.5),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: _themeColors.primary,
+                              width: 2,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: _themeColors.background,
+                          hintText: 'Nhập thời gian tối đa (ví dụ: 30)',
+                          hintStyle: TextStyle(
+                              color: _themeColors.textSecondary, fontSize: 15),
+                        ),
+                        style: TextStyle(color: _themeColors.textPrimary, fontSize: 15),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            _maxReadyTime = int.tryParse(value);
+                          });
                         },
                       ),
-                    ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Thời gian chuẩn bị tối đa (phút)',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _themeColors.currentTextPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: widget.isDarkMode
-                              ? Colors.grey[700]!
-                              : Colors.grey[300]!,
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        onTapDown: (_) => _searchButtonController.forward(),
+                        onTapUp: (_) {
+                          _searchButtonController.reverse();
+                          if (!_isLoading) {
+                            Navigator.pop(context);
+                            _suggestRecipes();
+                          }
+                        },
+                        onTapCancel: () => _searchButtonController.reverse(),
+                        child: ScaleTransition(
+                          scale: _searchButtonScaleAnimation,
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                  colors: [_themeColors.primary, _themeColors.accent]),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _themeColors.primary.withOpacity(0.4),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton.icon(
+                              onPressed: null,
+                              icon: _isLoading
+                                  ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                                  : const Icon(Icons.search, color: Colors.white, size: 24),
+                              label: Text(
+                                _isLoading ? 'Đang tìm kiếm...' : 'Áp dụng và tìm kiếm công thức',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      filled: true,
-                      fillColor: widget.isDarkMode ? Colors.grey[800] : Colors.grey[50],
-                      hintText: 'Nhập thời gian tối đa (ví dụ: 30)',
-                      hintStyle: TextStyle(
-                          color: _themeColors.currentTextSecondaryColor,
-                          fontSize: 14),
-                    ),
-                    style: TextStyle(
-                        color: _themeColors.currentTextPrimaryColor,
-                        fontSize: 14),
-                    onChanged: (value) {
-                      setState(() {
-                        _maxReadyTime = int.tryParse(value);
-                      });
-                    },
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                          colors: [_themeColors.primaryColor, _themeColors.accentColor]),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _themeColors.primaryColor.withOpacity(0.3),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton.icon(
-                      onPressed: _isLoading
-                          ? null
-                          : () {
-                        Navigator.pop(context);
-                        _suggestRecipes();
-                      },
-                      icon: _isLoading
-                          ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                          : const Icon(Icons.search, color: Colors.white, size: 20),
-                      label: Text(
-                        _isLoading ? 'Đang tìm kiếm...' : 'Áp dụng và tìm kiếm công thức',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -917,31 +950,38 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.85,
         minChildSize: 0.5,
-        maxChildSize: 0.9,
-        expand: false,
+        maxChildSize: 0.95,
+        expand: true,
         builder: (context, scrollController) => Container(
           decoration: BoxDecoration(
-            color: _themeColors.currentSurfaceColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            color: _themeColors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.2 : 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
+              ),
+            ],
           ),
           child: SingleChildScrollView(
             controller: scrollController,
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
                     child: Container(
-                      width: 36,
-                      height: 4,
+                      width: 48,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: widget.isDarkMode ? Colors.grey[700] : Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
+                        color: _themeColors.secondary.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(2.5),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -949,9 +989,9 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                         child: Text(
                           recipe['title'] ?? 'Không có tiêu đề',
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: _themeColors.currentTextPrimaryColor,
+                            color: _themeColors.textPrimary,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -960,18 +1000,18 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                       IconButton(
                         icon: _isLoading
                             ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
                         )
                             : Icon(
                           recipe['isFavorite'] ?? false
                               ? Icons.favorite
                               : Icons.favorite_border,
                           color: (recipe['isFavorite'] ?? false)
-                              ? _themeColors.errorColor
-                              : _themeColors.currentTextSecondaryColor,
-                          size: 24,
+                              ? _themeColors.error
+                              : _themeColors.textSecondary,
+                          size: 32,
                         ),
                         onPressed: _isLoading
                             ? null
@@ -985,65 +1025,61 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   if (recipe['image']?.isNotEmpty ?? false)
                     Container(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
+                            color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.2 : 0.08),
+                            blurRadius: 12,
+                            offset: const Offset(0, 5),
                           ),
                         ],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         child: Image.network(
                           recipe['image'],
-                          height: 180,
+                          height: 200,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) => Container(
-                            height: 180,
-                            color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                            height: 200,
+                            color: _themeColors.background,
                             child: Icon(Icons.broken_image,
-                                size: 40,
-                                color: widget.isDarkMode
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600]),
+                                size: 48, color: _themeColors.textSecondary),
                           ),
                         ),
                       ),
                     ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _themeColors.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
+                      color: _themeColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.access_time,
-                            color: _themeColors.primaryColor, size: 20),
-                        const SizedBox(width: 8),
+                        Icon(Icons.access_time, color: _themeColors.primary, size: 24),
+                        const SizedBox(width: 10),
                         Text(
-                          'Thời gian chuẩn bị: ${recipe['readyInMinutes'] ?? 'N/A'}',
+                          'Thời gian chuẩn bị: ${recipe['readyInMinutes'] ?? 'N/A'} phút',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: _themeColors.primaryColor,
+                            color: _themeColors.primary,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                   if (recipe['nutrition']?.isNotEmpty ?? false)
                     _buildNutritionSection(recipe['nutrition']),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                   if (recipe['ingredientsUsed']?.isNotEmpty ?? false)
                     _buildIngredientSection(
                       'Nguyên liệu có sẵn',
@@ -1051,29 +1087,29 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                           .map((e) => '${e['name']} (${e['amount']} ${e['unit']})')
                           .toList(),
                     ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                   if (recipe['ingredientsMissing']?.isNotEmpty ?? false)
                     _buildIngredientSection(
                       'Nguyên liệu còn thiếu',
                       (recipe['ingredientsMissing'] as List<dynamic>)
                           .map((e) => '${e['name']} (${e['amount']} ${e['unit']})')
                           .toList(),
-                      _themeColors.warningColor,
+                      _themeColors.warning,
                       Icons.shopping_cart,
                     ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   if (recipe['ingredientsMissing']?.isNotEmpty ?? false)
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                            colors: [_themeColors.accentColor, _themeColors.primaryColor]),
-                        borderRadius: BorderRadius.circular(10),
+                            colors: [_themeColors.accent, _themeColors.primary]),
+                        borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: _themeColors.accentColor.withOpacity(0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
+                            color: _themeColors.accent.withOpacity(0.4),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
@@ -1081,19 +1117,19 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                         onPressed: _isLoading ? null : () => _addToShoppingList(recipe),
                         icon: _isLoading
                             ? const SizedBox(
-                          width: 20,
-                          height: 20,
+                          width: 24,
+                          height: 24,
                           child: CircularProgressIndicator(
                             color: Colors.white,
-                            strokeWidth: 2,
+                            strokeWidth: 2.5,
                           ),
                         )
                             : const Icon(Icons.add_shopping_cart,
-                            color: Colors.white, size: 20),
+                            color: Colors.white, size: 24),
                         label: Text(
                           _isLoading ? 'Đang thêm...' : 'Thêm vào danh sách mua sắm',
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -1101,37 +1137,43 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
                     ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   Text(
                     'Hướng dẫn',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: _themeColors.currentTextPrimaryColor,
+                      color: _themeColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[50],
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: widget.isDarkMode ? Colors.grey[700]! : Colors.grey[200]!),
+                      color: _themeColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _themeColors.secondary.withOpacity(0.4)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.05 : 0.02),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: Text(
                       recipe['instructions'] ?? 'Không có hướng dẫn',
                       style: TextStyle(
-                        fontSize: 14,
-                        color: _themeColors.currentTextPrimaryColor,
-                        height: 1.5,
+                        fontSize: 15,
+                        color: _themeColors.textPrimary,
+                        height: 1.6,
                       ),
                     ),
                   ),
@@ -1166,35 +1208,38 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         orElse: () => {'amount': 0.0, 'unit': 'g'},
       )['amount']?.toDouble() ?? 0.0,
     };
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Thông tin dinh dưỡng',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: _themeColors.currentTextPrimaryColor,
+            color: _themeColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Container(
-          height: 180,
-          padding: const EdgeInsets.all(8),
+          height: 200,
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: widget.isDarkMode ? Colors.grey[800] : Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: widget.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
+            color: _themeColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _themeColors.secondary.withOpacity(0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.1 : 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: nutrientData.values.every((value) => value == 0.0)
               ? Center(
             child: Text(
               'Không có dữ liệu dinh dưỡng',
-              style: TextStyle(
-                  color: _themeColors.currentTextSecondaryColor,
-                  fontSize: 14),
+              style: TextStyle(color: _themeColors.textSecondary, fontSize: 15),
             ),
           )
               : PieChart(
@@ -1204,57 +1249,57 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                   value: nutrientData['Calories']!,
                   color: _themeColors.chartColors[0],
                   title: 'Calo',
-                  titleStyle: TextStyle(
-                    fontSize: 10,
+                  titleStyle: const TextStyle(
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
-                  radius: 50,
+                  radius: 60,
                 ),
                 PieChartSectionData(
                   value: nutrientData['Fat']!,
                   color: _themeColors.chartColors[1],
                   title: 'Chất béo',
-                  titleStyle: TextStyle(
-                    fontSize: 10,
+                  titleStyle: const TextStyle(
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
-                  radius: 50,
+                  radius: 60,
                 ),
                 PieChartSectionData(
                   value: nutrientData['Carbohydrates']!,
                   color: _themeColors.chartColors[2],
                   title: 'Carb',
-                  titleStyle: TextStyle(
-                    fontSize: 10,
+                  titleStyle: const TextStyle(
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
-                  radius: 50,
+                  radius: 60,
                 ),
                 PieChartSectionData(
                   value: nutrientData['Protein']!,
                   color: _themeColors.chartColors[3],
                   title: 'Protein',
-                  titleStyle: TextStyle(
-                    fontSize: 10,
+                  titleStyle: const TextStyle(
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
-                  radius: 50,
+                  radius: 60,
                 ),
               ],
-              sectionsSpace: 2,
-              centerSpaceRadius: 40,
+              sectionsSpace: 3,
+              centerSpaceRadius: 50,
               borderData: FlBorderData(show: false),
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Wrap(
-          spacing: 6,
-          runSpacing: 6,
+          spacing: 8,
+          runSpacing: 8,
           children: filteredNutrients
               .map((nutrient) => Chip(
             label: Text(
@@ -1265,15 +1310,14 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                   : nutrient['name'] == 'Carbohydrates'
                   ? 'Carb: ${nutrient['amount']?.toStringAsFixed(1) ?? '0.0'} ${nutrient['unit'] ?? ''}'
                   : 'Protein: ${nutrient['amount']?.toStringAsFixed(1) ?? '0.0'} ${nutrient['unit'] ?? ''}',
-              style: TextStyle(
-                  color: _themeColors.currentTextPrimaryColor,
-                  fontSize: 12),
+              style: TextStyle(color: _themeColors.textPrimary, fontSize: 13),
             ),
-            backgroundColor: _themeColors.accentColor.withOpacity(0.1),
-            side: BorderSide(color: _themeColors.accentColor.withOpacity(0.3)),
+            backgroundColor: _themeColors.accent.withOpacity(0.15),
+            side: BorderSide(color: _themeColors.accent.withOpacity(0.4)),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
             ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ))
               .toList(),
         ),
@@ -1289,55 +1333,59 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         Row(
           children: [
             Icon(icon ?? Icons.check_circle,
-                color: color ?? _themeColors.primaryColor, size: 18),
-            const SizedBox(width: 8),
+                color: color ?? _themeColors.primary, size: 20),
+            const SizedBox(width: 10),
             Text(
               title,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: _themeColors.currentTextPrimaryColor,
+                color: _themeColors.textPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         if (ingredients.isEmpty)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: widget.isDarkMode ? Colors.grey[700] : Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
+              color: _themeColors.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _themeColors.secondary.withOpacity(0.3)),
             ),
             child: Text(
               title.contains('có sẵn')
                   ? 'Không có nguyên liệu sẵn có'
                   : 'Không có nguyên liệu còn thiếu',
-              style: TextStyle(
-                  color: _themeColors.currentTextSecondaryColor, fontSize: 14),
+              style: TextStyle(color: _themeColors.textSecondary, fontSize: 15),
             ),
           )
         else
           ...ingredients.map((ingredient) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: (color ?? _themeColors.primaryColor).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: (color ?? _themeColors.primary).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                  color: (color ?? _themeColors.primaryColor).withOpacity(0.3)),
+                  color: (color ?? _themeColors.primary).withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.05 : 0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                Icon(Icons.circle,
-                    color: color ?? _themeColors.primaryColor, size: 10),
-                const SizedBox(width: 8),
+                Icon(Icons.circle, color: color ?? _themeColors.primary, size: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     ingredient,
-                    style: TextStyle(
-                        color: _themeColors.currentTextPrimaryColor,
-                        fontSize: 14),
+                    style: TextStyle(color: _themeColors.textPrimary, fontSize: 15),
                   ),
                 ),
               ],
@@ -1348,9 +1396,9 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
   }
 
   Color _getStatusColor(int expiryDays) {
-    if (expiryDays < 0) return _themeColors.errorColor;
-    if (expiryDays <= 3) return _themeColors.warningColor;
-    return _themeColors.successColor;
+    if (expiryDays < 0) return _themeColors.error;
+    if (expiryDays <= 3) return _themeColors.warning;
+    return _themeColors.success;
   }
 
   Widget _buildRecipeTile(Map<String, dynamic> recipe) {
@@ -1362,114 +1410,158 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: _themeColors.currentSurfaceColor,
-        borderRadius: BorderRadius.circular(12),
+        color: _themeColors.surface,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.2 : 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
-          ),
-          child: recipe['image']?.isNotEmpty ?? false
-              ? ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              recipe['image'],
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Icon(
-                Icons.restaurant,
-                color: _themeColors.primaryColor,
-                size: 24,
-              ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showRecipeDetails(recipe),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: _themeColors.background,
+                  ),
+                  child: recipe['image']?.isNotEmpty ?? false
+                      ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      recipe['image'],
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Icon(
+                        Icons.restaurant,
+                        color: _themeColors.primary,
+                        size: 32,
+                      ),
+                    ),
+                  )
+                      : Icon(Icons.restaurant, color: _themeColors.primary, size: 32),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        recipe['title'] ?? 'Không có tiêu đề',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: _themeColors.textPrimary,
+                          fontSize: 16,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Thời gian: ${recipe['readyInMinutes'] ?? 'N/A'} phút',
+                        style: TextStyle(
+                          color: _themeColors.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    (recipe['isFavorite'] ?? false) ? Icons.favorite : Icons.favorite_border,
+                    color: (recipe['isFavorite'] ?? false)
+                        ? _themeColors.error
+                        : _themeColors.textSecondary,
+                    size: 28,
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                    _logger.i(
+                        'Favorite button clicked in _buildRecipeTile, recipeId: ${recipe['id']}, isFavorite: ${recipe['isFavorite'] ?? false}');
+                    setState(() {
+                      recipe['isFavorite'] = !(recipe['isFavorite'] ?? false);
+                    });
+                    _toggleFavorite(
+                        recipe['id'].toString(), !(recipe['isFavorite'] ?? false));
+                  },
+                ),
+              ],
             ),
-          )
-              : Icon(Icons.restaurant,
-              color: _themeColors.primaryColor, size: 24),
-        ),
-        title: Text(
-          recipe['title'] ?? 'Không có tiêu đề',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: _themeColors.currentTextPrimaryColor,
-            fontSize: 14,
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
-        trailing: IconButton(
-          icon: Icon(
-            (recipe['isFavorite'] ?? false) ? Icons.favorite : Icons.favorite_border,
-            color: (recipe['isFavorite'] ?? false)
-                ? _themeColors.errorColor
-                : _themeColors.currentTextSecondaryColor,
-            size: 24,
-          ),
-          onPressed: _isLoading
-              ? null
-              : () {
-            _logger.i(
-                'Favorite button clicked in _buildRecipeTile, recipeId: ${recipe['id']}, isFavorite: ${recipe['isFavorite'] ?? false}');
-            setState(() {
-              recipe['isFavorite'] = !(recipe['isFavorite'] ?? false);
-            });
-            _toggleFavorite(
-                recipe['id'].toString(), !(recipe['isFavorite'] ?? false));
-          },
-        ),
-        onTap: () => _showRecipeDetails(recipe),
       ),
     );
   }
 
   Widget _buildShimmerLoading() {
     return Shimmer.fromColors(
-      baseColor: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
-      highlightColor: widget.isDarkMode ? Colors.grey[700]! : Colors.grey[100]!,
+      baseColor: _themeColors.isDarkMode ? Colors.grey[800]! : Colors.grey[200]!,
+      highlightColor: _themeColors.isDarkMode ? Colors.grey[700]! : Colors.grey[100]!,
       child: ListView.builder(
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 6,
         itemBuilder: (context, _) => Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: _themeColors.currentSurfaceColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(12),
-            leading: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.grey[300]!,
-                borderRadius: BorderRadius.circular(10),
+            color: _themeColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.1 : 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
-            ),
-            title: Container(
-              height: 16,
-              width: double.infinity,
-              color: Colors.grey[300]!,
-            ),
-            subtitle: Container(
-              height: 12,
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 8),
-              color: Colors.grey[300]!,
-            ),
-            trailing: Container(
-              width: 24,
-              height: 24,
-              color: Colors.grey[300]!,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 18,
+                        width: double.infinity,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 14,
+                        width: 150,
+                        color: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 28,
+                  height: 28,
+                  color: Colors.white,
+                ),
+              ],
             ),
           ),
         ),
@@ -1487,12 +1579,12 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
           opacity: _fadeAnimation.value,
           child: Container(
             decoration: BoxDecoration(
-              color: _themeColors.currentSurfaceColor,
+              color: _themeColors.surface,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(widget.isDarkMode ? 0.3 : 0.05),
-                  blurRadius: 4,
+                  color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.2 : 0.08),
+                  blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -1508,26 +1600,26 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            _themeColors.primaryColor.withOpacity(0.3),
-                            Colors.blue[100]!,
+                            _themeColors.primary.withOpacity(0.3),
+                            _themeColors.primary.withOpacity(0.1),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(icon, color: _themeColors.primaryColor, size: 18),
+                      child: Icon(icon, color: _themeColors.primary, size: 20),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: _themeColors.currentTextPrimaryColor,
+                        color: _themeColors.textPrimary,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 child,
               ],
             ),
@@ -1546,34 +1638,25 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           gradient: isSelected
-              ? LinearGradient(
-              colors: [_themeColors.primaryColor, _themeColors.accentColor])
+              ? LinearGradient(colors: [_themeColors.primary, _themeColors.accent])
               : null,
-          color: isSelected
-              ? null
-              : widget.isDarkMode
-              ? Colors.grey[700]!
-              : Colors.grey[200]!,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? null : _themeColors.background,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? Colors.transparent
-                : widget.isDarkMode
-                ? Colors.grey[400]!
-                : Colors.grey[300]!,
+                : _themeColors.secondary.withOpacity(0.5),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : _themeColors.currentTextPrimaryColor,
+            color: isSelected ? Colors.white : _themeColors.textPrimary,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            fontSize: 14,
+            fontSize: 15,
           ),
         ),
       ),
@@ -1583,16 +1666,16 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
   Widget _buildEmptyScreen() {
     return Center(
       child: Container(
-        margin: const EdgeInsets.all(20),
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: _themeColors.currentSurfaceColor,
-          borderRadius: BorderRadius.circular(16),
+          color: _themeColors.surface,
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(2, 3),
+              color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.2 : 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -1600,74 +1683,74 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    _themeColors.primaryColor.withOpacity(0.2),
-                    _themeColors.primaryColor.withOpacity(0.1),
+                    _themeColors.primary.withOpacity(0.2),
+                    _themeColors.primary.withOpacity(0.1),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
                 Icons.restaurant_menu,
-                size: 48,
-                color: _themeColors.primaryColor,
+                size: 64,
+                color: _themeColors.primary,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
               'Không tìm thấy nguyên liệu hoặc công thức',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: _themeColors.currentTextPrimaryColor,
+                color: _themeColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               'Vui lòng thêm nguyên liệu trong Tùy chọn nâng cao.',
               style: TextStyle(
-                fontSize: 14,
-                color: _themeColors.currentTextSecondaryColor,
+                fontSize: 16,
+                color: _themeColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [_themeColors.primaryColor, _themeColors.accentColor],
+                  colors: [_themeColors.primary, _themeColors.accent],
                 ),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: _themeColors.primaryColor.withOpacity(0.5),
-                    blurRadius: 4,
-                    offset: const Offset(1, 2),
+                    color: _themeColors.primary.withOpacity(0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
-                  shadowColor: null,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 onPressed: _isLoading
                     ? null
                     : () => _showAdvancedOptions(context),
-                icon: const Icon(Icons.tune, color: Colors.white, size: 20),
+                icon: const Icon(Icons.tune, color: Colors.white, size: 24),
                 label: const Text(
                   'Thêm nguyên liệu',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -1684,46 +1767,70 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
     final meals = _mealPlan[timeSlot] ?? [];
     _logger.i('Displaying $timeSlot: ${meals.length} recipes');
     if (meals.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: widget.isDarkMode ? Colors.grey[700] : Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          'Không có công thức cho khung giờ này.',
-          style: TextStyle(
-            fontSize: 14,
-            color: _themeColors.currentTextSecondaryColor,
-          ),
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: _themeColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _themeColors.background,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _themeColors.secondary.withOpacity(0.3)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(_themeColors.isDarkMode ? 0.05 : 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                'Không có công thức cho khung giờ này.',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: _themeColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: _themeColors.currentTextPrimaryColor,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: _themeColors.textPrimary,
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        ...meals.map((recipe) => _buildRecipeTile(recipe)),
-      ],
+          const SizedBox(height: 12),
+          ...meals.map((recipe) => _buildRecipeTile(recipe)),
+        ],
+      ),
     );
-  }
-
-  Widget _buildRecipeCard(Map<String, dynamic> recipe) {
-    return _buildRecipeTile(recipe);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _themeColors.currentBackgroundColor,
+      backgroundColor: _themeColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -1731,18 +1838,19 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
               position: _headerSlideAnimation,
               child: Container(
                 margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [_themeColors.primaryColor, _themeColors.accentColor],
+                    colors: [_themeColors.primary, _themeColors.accent],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: _themeColors.primaryColor.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
+                      color: _themeColors.primary.withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
@@ -1755,7 +1863,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withOpacity(0.15),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1767,66 +1875,63 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withOpacity(0.08),
                           shape: BoxShape.circle,
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Row(
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(8),
+                    Row(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.arrow_back_ios,
+                              color: Colors.white,
+                              size: 24,
                             ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.arrow_back_ios,
-                                color: Colors.white,
-                                size: 24,
+                            onPressed: () => Navigator.of(context).pop(),
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    colors: [
+                                      Colors.white.withOpacity(0.2),
+                                      Colors.white.withOpacity(0.05),
+                                    ],
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.restaurant_menu,
+                                  size: 24,
+                                  color: Colors.white,
+                                ),
                               ),
-                              onPressed: () => Navigator.of(context).pop(),
-                              padding: EdgeInsets.zero,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: RadialGradient(
-                                      colors: [
-                                        Colors.white.withOpacity(0.3),
-                                        Colors.white.withOpacity(0.1),
-                                      ],
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.restaurant_menu,
-                                    size: 24,
-                                    color: Colors.white,
-                                  ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Gợi ý công thức',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Gợi ý công thức',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1863,8 +1968,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
-                                          color: _themeColors
-                                              .currentTextPrimaryColor,
+                                          color: _themeColors.textPrimary,
                                         ),
                                       ),
                                       IconButton(
@@ -1872,8 +1976,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                           _isAdvancedOptionsVisible
                                               ? Icons.expand_less
                                               : Icons.expand_more,
-                                          color:
-                                          _themeColors.primaryColor,
+                                          color: _themeColors.primary,
                                         ),
                                         onPressed: () {
                                           setState(() {
@@ -1892,15 +1995,14 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                     width: double.infinity,
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(colors: [
-                                        _themeColors.primaryColor,
-                                        _themeColors.accentColor,
+                                        _themeColors.primary,
+                                        _themeColors.accent,
                                       ]),
-                                      borderRadius:
-                                      BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(8),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: _themeColors.primaryColor
-                                              .withOpacity(0.3),
+                                          color:
+                                          _themeColors.primary.withOpacity(0.3),
                                           blurRadius: 4,
                                           offset: const Offset(0, 2),
                                         ),
@@ -1908,25 +2010,20 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                     ),
                                     child: ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                        Colors.transparent,
+                                        backgroundColor: Colors.transparent,
                                         shadowColor: Colors.transparent,
                                         padding:
-                                        const EdgeInsets.symmetric(
-                                            vertical: 12),
+                                        const EdgeInsets.symmetric(vertical: 12),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                          BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(8),
                                         ),
                                       ),
-                                      onPressed:
-                                      _isLoading ? null : _suggestRecipes,
+                                      onPressed: _isLoading ? null : _suggestRecipes,
                                       icon: _isLoading
                                           ? const SizedBox(
                                         width: 24,
                                         height: 24,
-                                        child:
-                                        CircularProgressIndicator(
+                                        child: CircularProgressIndicator(
                                           strokeWidth: 2,
                                           color: Colors.white,
                                         ),
@@ -1957,8 +2054,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                 title: 'Công thức được gợi ý',
                                 icon: Icons.star,
                                 child: Column(
-                                  crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
                                       mainAxisAlignment:
@@ -1967,32 +2063,26 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                                         Text(
                                           'Tìm thấy ${_mealPlan.values.fold(
                                             0,
-                                                (sum, recipes) =>
-                                            sum + recipes.length,
+                                                (sum, recipes) => sum + recipes.length,
                                           )} công thức phù hợp',
                                           style: TextStyle(
                                             fontSize: 14,
-                                            color: _themeColors
-                                                .currentTextSecondaryColor,
+                                            color: _themeColors.textSecondary,
                                           ),
                                         ),
                                         IconButton(
                                           icon: Icon(
                                             Icons.refresh,
-                                            color:
-                                            _themeColors.primaryColor,
+                                            color: _themeColors.primary,
                                             size: 20,
                                           ),
-                                          onPressed: _isLoading
-                                              ? null
-                                              : _resetAllRecipes,
+                                          onPressed: _isLoading ? null : _resetAllRecipes,
                                         ),
                                       ],
                                     ),
                                     const SizedBox(height: 16),
                                     ..._timeSlots.map((slot) =>
-                                        _buildRecipeSection(
-                                            slot['id']!, slot['name']!)),
+                                        _buildRecipeSection(slot['id']!, slot['name']!)),
                                   ],
                                 ),
                               ),
@@ -2009,7 +2099,7 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: _themeColors.primaryColor,
+        backgroundColor: _themeColors.primary,
         onPressed: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -2036,7 +2126,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
         },
         body: jsonEncode({'userId': widget.userId}),
       );
-
       if (response.statusCode == 200) {
         _logger.i('Xóa cache offset thành công cho userId: ${widget.userId}');
       } else {
@@ -2045,14 +2134,5 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
     } catch (e, stackTrace) {
       _logger.e('Lỗi khi xóa cache offset: $e', stackTrace: stackTrace);
     }
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    _headerAnimationController.dispose();
-    _clearOffsetCache();
-    _httpClient.close();
-    super.dispose();
   }
 }

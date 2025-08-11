@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:luanvan/screens/welcome_screen.dart';
+import 'package:luanvan/screens/favorite_recipes_screen.dart';
 import 'package:workmanager/workmanager.dart';
 import 'dart:io' show Platform;
 import 'package:permission_handler/permission_handler.dart';
@@ -34,14 +35,17 @@ void callbackDispatcher() {
       const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
       const initSettings = InitializationSettings(android: androidInit);
       await flutterLocalNotificationsPlugin.initialize(initSettings);
+
       final String userId = inputData?['userId'] ?? "defaultUserId";
       final now = DateTime.now().toUtc().add(const Duration(hours: 7));
       final dateFormat = DateFormat('dd/MM/yyyy');
+
       final snapshot = await firestore
           .collection('StorageLogs')
           .where('userId', isEqualTo: userId)
           .limit(50)
           .get();
+
       final List<Map<String, dynamic>> storageLogs = snapshot.docs.map((doc) {
         final data = doc.data();
         DateTime? expiryDate = data['expiryDate'] is Timestamp
@@ -54,12 +58,14 @@ void callbackDispatcher() {
           'status': _getStatus(expiryDate),
         };
       }).toList();
+
       final expiringItems = storageLogs.where((log) {
         final expiryDate = log['expiryDate'] as DateTime?;
         if (expiryDate == null) return false;
         final daysLeft = expiryDate.difference(now).inDays;
         return daysLeft >= 0 && daysLeft <= 3;
       }).toList();
+
       for (var item in expiringItems) {
         final logId = item['id'] as String;
         final foodName = item['foodName'] as String? ?? 'Unknown Food';
@@ -73,10 +79,12 @@ void callbackDispatcher() {
         );
         _notifiedLogs.add(logId);
       }
+
       final expiredItems = storageLogs.where((log) {
         final expiryDate = log['expiryDate'] as DateTime?;
         return expiryDate != null && expiryDate.isBefore(now);
       }).toList();
+
       for (var item in expiredItems) {
         final logId = item['id'] as String;
         final foodName = item['foodName'] as String? ?? 'Unknown Food';
@@ -164,17 +172,20 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
   String? _selectedAreaId;
   String _selectedAreaName = 'Tất cả';
   String? _selectedFridgeId;
   String _selectedFridgeName = '';
   List<Map<String, dynamic>> _fridges = [];
+
   late AnimationController _animationController;
-  late AnimationController _fabAnimationController;
+  late AnimationController _fabMenuController; // Đổi tên để rõ ràng hơn cho menu FAB
   late AnimationController _shimmerController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _slideAnimation;
   late FlutterLocalNotificationsPlugin _notificationsPlugin;
+
   bool _isLoggingOut = false;
   bool _isLoading = true;
   bool _isDeletingExpired = false;
@@ -182,6 +193,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isSearchVisible = false;
   String _searchQuery = '';
   SortOption _selectedSort = SortOption.category;
+
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   List<String> _searchSuggestions = [];
@@ -210,13 +222,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final Color recipeColor = const Color(0xFF10B981);
   final Color shoppingColor = const Color(0xFF8B5CF6);
   final Color mealPlanColor = const Color(0xFFF59E0B);
-
+  final Color favoriteRecipesColor = const Color(0xFFE91E63); // Màu hồng cho FAB công thức yêu thích
   List<Map<String, dynamic>> _storageLogs = [];
   List<Map<String, dynamic>> _storageAreas = [];
   final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
+
   int _currentPage = 0;
   static const int _pageSize = 20;
   Timer? _searchDebounce;
+
+  // FAB menu state
+  bool _isFabMenuOpen = false;
 
   Color get currentBackgroundColor => _isDarkMode ? darkBackgroundColor : backgroundColor;
   Color get currentSurfaceColor => _isDarkMode ? darkSurfaceColor : surfaceColor;
@@ -248,8 +264,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    _fabAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+    // Sử dụng _fabMenuController cho menu FAB
+    _fabMenuController = AnimationController(
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
     _shimmerController = AnimationController(
@@ -263,10 +280,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
+
     _animationController.forward();
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (mounted) _fabAnimationController.forward();
-    });
   }
 
   Future<void> _initializeWorkManager() async {
@@ -531,6 +546,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (_searchQuery.isNotEmpty) url += '&query=${Uri.encodeComponent(_searchQuery)}';
       String sortBy = _getSortParameter();
       if (sortBy.isNotEmpty) url += '&sortBy=$sortBy';
+
       print('Fetching storage logs: $url');
       final response = await http.get(
         Uri.parse(url),
@@ -540,6 +556,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         },
       );
       print('Response status: ${response.statusCode}, body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final logs = List<Map<String, dynamic>>.from(data['logs'] ?? []).map((log) {
@@ -702,6 +719,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
   Future<void> _showDeleteFridgeDialog(Map<String, dynamic> fridge) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -728,11 +746,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ],
       ),
     );
-
     if (confirmed == true) {
       await _deleteFridge(fridge['id']);
     }
   }
+
   Future<void> _updateFridge(String fridgeId, String newName) async {
     try {
       final url = Uri.parse('${Config.getNgrokUrl()}/update_fridge/$fridgeId');
@@ -758,6 +776,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _showErrorSnackBar('Lỗi khi cập nhật tủ lạnh: $e');
     }
   }
+
   Future<void> _deleteFridge(String fridgeId) async {
     try {
       final url = Uri.parse('${Config.getNgrokUrl()}/delete_fridge/$fridgeId?userId=${Uri.encodeComponent(widget.uid)}');
@@ -779,6 +798,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _showErrorSnackBar('Lỗi khi xóa tủ lạnh: $e');
     }
   }
+
   Future<void> _showAreaManagementDialog() async {
     await showDialog(
       context: context,
@@ -914,14 +934,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final users = List<Map<String, dynamic>>.from(data['users'] ?? []);
         return users;
       } else {
-        throw Exception('Failed to fetch fridge users: ${response.body}');
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>;
+        final errorMessage = errorData['error'] ?? 'Lỗi không xác định';
+        throw Exception(_getFriendlyErrorMessage(errorMessage));
       }
     } catch (e) {
-      print('Error fetching fridge users: $e');
-      _showErrorSnackBar('Lỗi khi tải danh sách người dùng: $e');
+      final errorMessage = _getFriendlyErrorMessage(e.toString());
+      _showErrorSnackBar(errorMessage);
       return [];
     }
   }
+
+  String _getFriendlyErrorMessage(String error) {
+    final errorStr = error.toLowerCase();
+    if (errorStr.contains('userid') || errorStr.contains('user id')) {
+      return 'Vui lòng cung cấp thông tin người dùng';
+    } else if (errorStr.contains('fridge not found')) {
+      return 'Không tìm thấy tủ lạnh';
+    } else if (errorStr.contains('unauthorized') || errorStr.contains('access')) {
+      return 'Bạn không có quyền truy cập tủ lạnh này';
+    } else if (errorStr.contains('network') || errorStr.contains('connection')) {
+      return 'Không có kết nối mạng';
+    } else if (errorStr.contains('timeout')) {
+      return 'Kết nối quá chậm';
+    }
+    return 'Không thể tải danh sách người dùng, vui lòng thử lại';
+  }
+
   Future<void> _removeUserFromFridge(String fridgeId, String userIdToRemove) async {
     try {
       final response = await http.post(
@@ -1040,6 +1079,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
   Future<void> _showDeleteUserDialog(String userId, String email) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1066,7 +1106,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ],
       ),
     );
-
     if (confirmed == true) {
       await _removeUserFromFridge(_selectedFridgeId!, userId);
     }
@@ -1095,7 +1134,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isEmpty) return;
-
               try {
                 final response = await http.put(
                   Uri.parse('${Config.getNgrokUrl()}/update_fridge/${fridge['id']}'),
@@ -1105,7 +1143,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   },
                   body: jsonEncode({'name': name}),
                 );
-
                 if (response.statusCode == 200) {
                   await _fetchFridges();
                   if (_selectedFridgeId == fridge['id']) {
@@ -1151,7 +1188,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isEmpty) return;
-
               try {
                 final response = await http.put(
                   Uri.parse('${Config.getNgrokUrl()}/update_area/${area['id']}?userId=${Uri.encodeComponent(widget.uid)}'),
@@ -1161,7 +1197,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   },
                   body: jsonEncode({'name': name}),
                 );
-
                 if (response.statusCode == 200) {
                   await _fetchStorageAreas();
                   if (_selectedAreaId == area['id']) {
@@ -1210,7 +1245,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ],
       ),
     );
-
     if (confirmed == true) {
       try {
         final response = await http.delete(
@@ -1220,7 +1254,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             'Authorization': 'Bearer ${widget.token}',
           },
         );
-
         if (response.statusCode == 200) {
           await _fetchStorageAreas();
           if (_selectedAreaId == area['id']) {
@@ -1239,6 +1272,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     }
   }
+
   Future<void> _showAddFridgeDialog() async {
     final controller = TextEditingController();
     bool? result = await showDialog<bool>(
@@ -1602,6 +1636,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
   void _selectFridge(String? fridgeId, String fridgeName) {
     setState(() {
       _selectedFridgeId = fridgeId;
@@ -1868,6 +1903,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (_isDeletingExpired) return;
     final confirmed = await _showDeleteConfirmDialog();
     if (!confirmed) return;
+
     setState(() => _isDeletingExpired = true);
     try {
       final now = DateTime.now().toUtc().add(const Duration(hours: 7));
@@ -1875,10 +1911,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final expiryDate = log['expiryDate'] as DateTime?;
         return expiryDate != null && expiryDate.isBefore(now);
       }).toList();
+
       if (expiredItems.isEmpty) {
         _showSuccessSnackBar('Không có món nào đã hết hạn để xóa!');
         return;
       }
+
       int deletedCount = 0;
       for (var item in expiredItems) {
         final logId = item['id'] as String;
@@ -1980,6 +2018,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final status = log['status'] as String;
         return (status == 'expiring' || status == 'expired') && !_notifiedLogs.contains(log['id']);
       }).toList();
+
       for (var item in expiringItems) {
         final logId = item['id'] as String;
         final foodName = item['foodName'] as String? ?? 'Unknown Food';
@@ -2022,14 +2061,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
+  // New method to toggle the FAB menu
+  void _toggleFabMenu() {
+    setState(() {
+      _isFabMenuOpen = !_isFabMenuOpen;
+      if (_isFabMenuOpen) {
+        _fabMenuController.forward();
+      } else {
+        _fabMenuController.reverse();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = screenWidth > 600; // Pixel 4 là khoảng 411dp, nên cái này sẽ là false
+
     List<Map<String, dynamic>> filteredStorageLogs = _filterStorageLogs(_storageLogs);
     final totalCount = _getTotalItemsCount(_storageLogs);
     final expiringCount = _getExpiringItemsCount(_storageLogs);
     final expiredCount = _getExpiredItemsCount(_storageLogs);
+
     return Scaffold(
       backgroundColor: currentBackgroundColor,
       body: SafeArea(
@@ -2071,10 +2124,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: _buildAreaSection(),
                   ),
                   const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  SliverToBoxAdapter(
-                    child: _buildQuickActionsSection(),
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  // Đã loại bỏ _buildQuickActionsSection() khỏi đây
                   if (expiringCount > 0 || expiredCount > 0)
                     SliverToBoxAdapter(
                       child: _buildAlertSection(expiringCount, expiredCount),
@@ -2101,6 +2151,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             if (_isLoading)
               _buildLoadingOverlay(),
+            // FAB menu
+            _buildFabMenu(),
           ],
         ),
       ),
@@ -2291,6 +2343,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
+          if (_searchSuggestions.isNotEmpty && _searchQuery.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                color: currentSurfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _searchSuggestions.length,
+                itemBuilder: (context, index) {
+                  final suggestion = _searchSuggestions[index];
+                  return ListTile(
+                    title: Text(suggestion, style: TextStyle(color: currentTextPrimaryColor)),
+                    onTap: () => _selectSearchSuggestion(suggestion),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -2471,26 +2550,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildQuickActionsSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Thao tác nhanh',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: currentTextPrimaryColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildEnhancedActionGrid(),
-        ],
-      ),
-    );
-  }
+  // Đã loại bỏ _buildQuickActionsSection() vì nó được thay thế bằng FAB menu
+  // Widget _buildQuickActionsSection() {
+  //   return Container(
+  //     margin: const EdgeInsets.symmetric(horizontal: 16),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           'Thao tác nhanh',
+  //           style: TextStyle(
+  //             fontSize: 20,
+  //             fontWeight: FontWeight.bold,
+  //             color: currentTextPrimaryColor,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 16),
+  //         _buildEnhancedActionGrid(),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildAlertSection(int expiringCount, int expiredCount) {
     return Container(
@@ -2581,166 +2661,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildEnhancedActionGrid() {
-    return Container(
-      decoration: BoxDecoration(
-        color: currentSurfaceColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactActionButton(
-                  'Thêm thực phẩm',
-                  Icons.add_rounded,
-                  addFoodColor,
-                      () {
-                    if (_selectedFridgeId == null) {
-                      _showErrorSnackBar('Vui lòng chọn hoặc thêm một tủ lạnh trước.');
-                      return;
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AddFoodScreen(
-                          uid: widget.uid,
-                          token: widget.token,
-                          isDarkMode: _isDarkMode,
-                          fridgeId: _selectedFridgeId!,
-                        ),
-                      ),
-                    ).then((value) async {
-                      if (value == true) await _fetchStorageLogs(page: 0);
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildCompactActionButton(
-                  'Gợi ý món ăn',
-                  Icons.restaurant_menu_rounded,
-                  recipeColor,
-                      () => _showRecipeSuggestions(_storageLogs),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactActionButton(
-                  'Danh sách mua',
-                  Icons.shopping_cart_rounded,
-                  shoppingColor,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CartScreen(userId: widget.uid, isDarkMode: _isDarkMode),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildCompactActionButton(
-                  'Kế hoạch ăn',
-                  Icons.calendar_month_rounded,
-                  mealPlanColor,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MealPlanScreen(
-                          userId: widget.uid,
-                          isDarkMode: _isDarkMode,
-                          fridgeId: _selectedFridgeId,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompactActionButton(String title, IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color, color.withOpacity(0.8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: currentTextPrimaryColor,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -3422,6 +3342,190 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildFabMenu() {
+    return Positioned(
+      bottom: 16.0,
+      right: 16.0,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Add Food FAB
+          _buildSubFab(
+            icon: Icons.add_rounded,
+            label: 'Thêm thực phẩm',
+            color: addFoodColor,
+            onTap: () {
+              _toggleFabMenu(); // Đóng menu
+              if (_selectedFridgeId == null) {
+                _showErrorSnackBar('Vui lòng chọn hoặc thêm một tủ lạnh trước.');
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddFoodScreen(
+                    uid: widget.uid,
+                    token: widget.token,
+                    isDarkMode: _isDarkMode,
+                    fridgeId: _selectedFridgeId!,
+                  ),
+                ),
+              ).then((value) async {
+                if (value == true) await _fetchStorageLogs(page: 0);
+              });
+            },
+            animation: _fabMenuController,
+            delay: 0.0,
+          ),
+          const SizedBox(height: 12),
+          // Recipe Suggestion FAB
+          _buildSubFab(
+            icon: Icons.restaurant_menu_rounded,
+            label: 'Gợi ý món ăn',
+            color: recipeColor,
+            onTap: () {
+              _toggleFabMenu(); // Đóng menu
+              _showRecipeSuggestions(_storageLogs);
+            },
+            animation: _fabMenuController,
+            delay: 0.1,
+          ),
+          const SizedBox(height: 12),
+          // Shopping List FAB
+          _buildSubFab(
+            icon: Icons.shopping_cart_rounded,
+            label: 'Danh sách mua',
+            color: shoppingColor,
+            onTap: () {
+              _toggleFabMenu(); // Đóng menu
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CartScreen(userId: widget.uid, isDarkMode: _isDarkMode),
+                ),
+              );
+            },
+            animation: _fabMenuController,
+            delay: 0.2,
+          ),
+          const SizedBox(height: 12),
+          // Meal Plan FAB
+          _buildSubFab(
+            icon: Icons.calendar_month_rounded,
+            label: 'Kế hoạch ăn',
+            color: mealPlanColor,
+            onTap: () {
+              _toggleFabMenu(); // Đóng menu
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MealPlanScreen(
+                    userId: widget.uid,
+                    isDarkMode: _isDarkMode,
+                    fridgeId: _selectedFridgeId,
+                  ),
+                ),
+              );
+            },
+            animation: _fabMenuController,
+            delay: 0.3,
+          ),
+          const SizedBox(height: 12),
+          // Favorite Recipes FAB (Mới)
+          _buildSubFab(
+            icon: Icons.favorite,
+            label: 'Công thức yêu thích',
+            color: favoriteRecipesColor,
+            onTap: () {
+              _toggleFabMenu(); // Đóng menu
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FavoriteRecipesScreen(
+                    userId: widget.uid,
+                    isDarkMode: _isDarkMode,
+                  ),
+                ),
+              );
+            },
+            animation: _fabMenuController,
+            delay: 0.4, // Tăng delay để tạo hiệu ứng tuần tự
+          ),
+          const SizedBox(height: 20), // Khoảng cách giữa các FAB con và FAB chính
+          FloatingActionButton(
+            heroTag: 'mainFab', // Đảm bảo heroTag là duy nhất
+            onPressed: _toggleFabMenu,
+            backgroundColor: primaryColor,
+            child: AnimatedIcon(
+              icon: AnimatedIcons.menu_close,
+              progress: _fabMenuController,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper for individual sub-FABs
+  Widget _buildSubFab({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+    required Animation<double> animation,
+    required double delay,
+  }) {
+    return ScaleTransition(
+      scale: CurvedAnimation(
+        parent: animation,
+        curve: Interval(delay, 1.0, curve: Curves.easeOut),
+      ),
+      child: FadeTransition(
+        opacity: CurvedAnimation(
+          parent: animation,
+          curve: Interval(delay, 1.0, curve: Curves.easeOut),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: currentSurfaceColor,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(_isDarkMode ? 0.2 : 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: currentTextPrimaryColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FloatingActionButton(
+              heroTag: label, // Thẻ duy nhất cho mỗi FAB
+              mini: true,
+              backgroundColor: color,
+              onPressed: onTap,
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _logout() async {
     if (_isLoggingOut || !mounted) return;
     setState(() {
@@ -3459,7 +3563,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _animationController.dispose();
-    _fabAnimationController.dispose();
+    _fabMenuController.dispose(); // Dispose the FAB menu controller
     _shimmerController.dispose();
     _searchController.dispose();
     _scrollController.dispose();

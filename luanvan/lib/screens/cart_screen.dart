@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'config.dart';
+import 'package:intl/intl.dart';
+import 'package:logger/logger.dart';
+import 'package:loading_animation_widget/loading_animation_widget.dart';
 
 class CartScreen extends StatefulWidget {
   final String userId;
   final bool isDarkMode; // Thêm isDarkMode vào constructor
-
   const CartScreen({
     super.key,
     required this.userId,
@@ -23,6 +25,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
   late Animation<double> _fadeAnimation;
   late Animation<double> _slideAnimation;
   late Animation<Offset> _headerSlideAnimation;
+
   late List<Map<String, dynamic>> _cartItems;
   final TextEditingController _manualInputController = TextEditingController();
   final Map<String, String> _foodNameCache = {};
@@ -35,10 +38,12 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
   final Color successColor = const Color(0xFF00C851);
   final Color warningColor = const Color(0xFFE67E22);
   final Color errorColor = const Color(0xFFE74C3C);
+
   final Color backgroundColor = const Color(0xFFE6F7FF);
   final Color surfaceColor = Colors.white;
   final Color textPrimaryColor = const Color(0xFF202124);
   final Color textSecondaryColor = const Color(0xFF5F6368);
+
   final Color darkBackgroundColor = const Color(0xFF121212);
   final Color darkSurfaceColor = const Color(0xFF1E1E1E);
   final Color darkTextPrimaryColor = const Color(0xFFE0E0E0);
@@ -54,12 +59,10 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _cartItems = [];
-
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
-
     _headerAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -68,11 +71,9 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-
     _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-
     _headerSlideAnimation = Tween<Offset>(
       begin: const Offset(0, -1),
       end: Offset.zero,
@@ -96,7 +97,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
 
   Future<void> _fetchCartItems() async {
     setState(() => _isLoading = true);
-
     try {
       final response = await http.get(
         Uri.parse('${Config.getNgrokUrl()}/get_shopping_list?userId=${widget.userId}'),
@@ -106,7 +106,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final items = List<Map<String, dynamic>>.from(data['items'] ?? []);
-
         setState(() {
           _cartItems = items.map((item) {
             if (item['foodId'] != null && !item.containsKey('name')) {
@@ -119,7 +118,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
           }).toList();
           _isLoading = false;
         });
-
         await _fetchFoodNamesForItems();
       } else {
         throw Exception('Không thể lấy danh sách mua sắm: ${response.body}');
@@ -149,7 +147,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final foodNames = data['foodNames'] as Map<String, dynamic>? ?? {};
-
         setState(() {
           for (var item in _cartItems) {
             if (item['foodId'] != null && !item.containsKey('name')) {
@@ -204,7 +201,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
 
   Future<void> _removeItem(String itemId) async {
     final removedItem = _cartItems.firstWhere((item) => item['id'] == itemId);
-
     setState(() {
       _cartItems.removeWhere((item) => item['id'] == itemId);
     });
@@ -233,7 +229,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       'Xóa toàn bộ danh sách',
       'Bạn có chắc chắn muốn xóa toàn bộ danh sách mua sắm không?',
     );
-
     if (!confirmed) return;
 
     final originalItems = _cartItems.map((item) => Map<String, dynamic>.from(item)).toList();
@@ -551,11 +546,9 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         newItem['id'] = data['itemId'];
-
         setState(() {
           _cartItems.add(newItem);
         });
-
         _manualInputController.clear();
         Navigator.pop(context);
         _showSuccessSnackBar('Đã thêm vào danh sách mua sắm!');
@@ -591,11 +584,9 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         newItem['id'] = data['itemId'];
-
         setState(() {
           _cartItems.add(newItem);
         });
-
         setModalState(() {});
         _showSuccessSnackBar('Đã thêm $foodName vào danh sách!');
       } else {
@@ -631,14 +622,15 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: currentSurfaceColor, // Sử dụng màu động
           title: Row(
             children: [
               Icon(Icons.warning_rounded, color: warningColor),
               const SizedBox(width: 8),
-              Text(title),
+              Text(title, style: TextStyle(color: currentTextPrimaryColor)), // Sử dụng màu động
             ],
           ),
-          content: Text(content),
+          content: Text(content, style: TextStyle(color: currentTextSecondaryColor)), // Sử dụng màu động
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -666,7 +658,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
           children: [
             Icon(Icons.check_circle_outline, color: Colors.white),
             const SizedBox(width: 8),
-            Expanded(child: Text(message)),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.white))),
           ],
         ),
         backgroundColor: successColor,
@@ -685,7 +677,7 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
           children: [
             Icon(Icons.error_outline, color: Colors.white),
             const SizedBox(width: 8),
-            Expanded(child: Text(message)),
+            Expanded(child: Text(message, style: const TextStyle(color: Colors.white))),
           ],
         ),
         backgroundColor: errorColor,
@@ -829,7 +821,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-
             // Content
             Expanded(
               child: _isLoading
@@ -951,9 +942,16 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
                 return AnimatedBuilder(
                   animation: _slideAnimation,
                   builder: (context, child) {
+                    // Apply a staggered animation effect
+                    final itemAnimationValue = Curves.easeOut.transform(
+                      (_animationController.value * 2 - (index * 0.1)).clamp(0.0, 1.0),
+                    );
                     return Transform.translate(
-                      offset: Offset(0, _slideAnimation.value * (index + 1)),
-                      child: _buildCartItem(_cartItems[index], index),
+                      offset: Offset(0, _slideAnimation.value * (1 - itemAnimationValue)),
+                      child: Opacity(
+                        opacity: itemAnimationValue,
+                        child: _buildCartItem(_cartItems[index], index),
+                      ),
                     );
                   },
                 );
@@ -1032,7 +1030,6 @@ class _CartScreenState extends State<CartScreen> with TickerProviderStateMixin {
   Widget _buildCartItem(Map<String, dynamic> item, int index) {
     final itemName = item['name'] ?? 'Mục không xác định';
     final quantity = item['quantity'] ?? 1;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(

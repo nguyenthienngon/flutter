@@ -275,8 +275,20 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
         }
       } else {
         setState(() {
-          _errorMessage = data['error'] ?? _getErrorMessage(null, response.statusCode);
+          String errorMsg = data['error'] ?? '';
+
+          // Chuyển lỗi backend sang tiếng Việt
+          if (errorMsg.toLowerCase().contains('email') && errorMsg.toLowerCase().contains('exist')) {
+            errorMsg = 'Email đã tồn tại';
+          } else if (errorMsg.toLowerCase().contains('invalid email')) {
+            errorMsg = 'Email không hợp lệ';
+          }
+
+          _errorMessage = errorMsg.isNotEmpty
+              ? errorMsg
+              : _getErrorMessage(null, response.statusCode);
         });
+
       }
     } catch (e) {
       setState(() {

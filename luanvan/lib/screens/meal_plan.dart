@@ -12,19 +12,41 @@ import 'config.dart';
 
 class ThemeColors {
   final bool isDarkMode;
-
   ThemeColors({required this.isDarkMode});
 
-  Color get primary => isDarkMode ? Colors.blue[700] ?? Colors.blue : Colors.blue[500] ?? Colors.blue;
-  Color get accent => isDarkMode ? Colors.cyan[600] ?? Colors.cyan : Colors.cyan[400] ?? Colors.cyan;
-  Color get secondary => isDarkMode ? Colors.grey[600] ?? Colors.grey : Colors.grey[400] ?? Colors.grey;
-  Color get error => isDarkMode ? Colors.red[400] ?? Colors.red : Colors.red[600] ?? Colors.red;
-  Color get warning => isDarkMode ? Colors.amber[400] ?? Colors.amber : Colors.amber[600] ?? Colors.amber;
-  Color get success => isDarkMode ? Colors.green[400] ?? Colors.green : Colors.green[600] ?? Colors.green;
-  Color get background => isDarkMode ? Colors.grey[900] ?? Colors.black : Colors.white;
-  Color get surface => isDarkMode ? Colors.grey[800] ?? Colors.grey : Colors.grey[50] ?? Colors.white;
-  Color get textPrimary => isDarkMode ? Colors.white : Colors.grey[900] ?? Colors.black;
-  Color get textSecondary => isDarkMode ? Colors.grey[400] ?? Colors.grey : Colors.grey[600] ?? Colors.grey;
+  // Define exact hex colors for consistency
+  static const Color _primaryLight = Color(0xFF0078D7);
+  static const Color _secondaryLight = Color(0xFF50E3C2);
+  static const Color _accentLight = Color(0xFF00B294);
+  static const Color _successLight = Color(0xFF00C851);
+  static const Color _warningLight = Color(0xFFE67E22);
+  static const Color _errorLight = Color(0xFFE74C3C);
+  static const Color _backgroundLight = Color(0xFFE6F7FF);
+  static const Color _surfaceLight = Colors.white;
+  static const Color _textPrimaryLight = Color(0xFF202124);
+  static const Color _textSecondaryLight = Color(0xFF5F6368);
+
+  static const Color _primaryDark = Color(0xFF0078D7);
+  static const Color _secondaryDark = Color(0xFF50E3C2);
+  static const Color _accentDark = Color(0xFF00B294);
+  static const Color _successDark = Color(0xFF00C851);
+  static const Color _warningDark = Color(0xFFE67E22);
+  static const Color _errorDark = Color(0xFFE74C3C);
+  static const Color _backgroundDark = Color(0xFF121212);
+  static const Color _surfaceDark = Color(0xFF1E1E1E);
+  static const Color _textPrimaryDark = Color(0xFFE0E0E0);
+  static const Color _textSecondaryDark = Color(0xFFB0B0B0);
+
+  Color get primary => isDarkMode ? _primaryDark : _primaryLight;
+  Color get accent => isDarkMode ? _accentDark : _accentLight;
+  Color get secondary => isDarkMode ? _secondaryDark : _secondaryLight;
+  Color get error => isDarkMode ? _errorDark : _errorLight;
+  Color get warning => isDarkMode ? _warningDark : _warningLight;
+  Color get success => isDarkMode ? _successDark : _successLight;
+  Color get background => isDarkMode ? _backgroundDark : _backgroundLight;
+  Color get surface => isDarkMode ? _surfaceDark : _surfaceLight;
+  Color get textPrimary => isDarkMode ? _textPrimaryDark : _textPrimaryLight;
+  Color get textSecondary => isDarkMode ? _textSecondaryDark : _textSecondaryLight;
 }
 
 class MealPlanScreen extends StatefulWidget {
@@ -67,6 +89,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
   String _selectedTimeFrame = 'week';
   int _targetCalories = 2000;
   bool _useFridgeIngredients = false;
+
   DateTime _selectedDay = DateTime.now();
   DateTime _focusedDay = DateTime.now();
 
@@ -150,7 +173,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/get_user_fridges?userId=${widget.userId}'),
           headers: {'Content-Type': 'application/json'},
         );
-
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           final fridges = List<Map<String, dynamic>>.from(data['fridges'] ?? []);
@@ -187,7 +209,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/get_favorite_recipes?userId=${widget.userId}'),
           headers: {'Content-Type': 'application/json'},
         );
-
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           final favorites = List<Map<String, dynamic>>.from(data['favoriteRecipes'] ?? []);
@@ -209,7 +230,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
 
   Future<List<Map<String, dynamic>>> _fetchFridgeIngredients() async {
     if (!_useFridgeIngredients || _selectedFridgeId == null) return [];
-
     try {
       final response = await _httpClient.post(
         Uri.parse('$_ngrokUrl/get_user_ingredients'),
@@ -219,7 +239,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           'fridgeId': _selectedFridgeId,
         }),
       );
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return List<Map<String, dynamic>>.from(data['ingredients'] ?? []);
@@ -238,12 +257,10 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/get_all_calendar_meals?userId=${widget.userId}'),
           headers: {'Content-Type': 'application/json'},
         );
-
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           final mealsByDate = <String, List<Map<String, dynamic>>>{};
           final daysWithRecipes = <String>{};
-
           for (var meal in (data['meals'] as List<dynamic>? ?? [])) {
             final date = meal['date'] as String? ?? '';
             if (date.isNotEmpty) {
@@ -252,7 +269,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
               _addedToCalendar[date] = true;
             }
           }
-
           if (mounted) {
             setState(() {
               _allCalendarMeals
@@ -274,13 +290,11 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
 
   Future<void> _addToCalendar(Map<String, dynamic> recipe) async {
     if (_isLoading) return;
-
     final selectedDate = await _selectCalendarDate();
     if (selectedDate == null) {
       _showSnackBar('Không chọn ngày.', _theme.warning);
       return;
     }
-
     await _executeWithLoading(
           () async {
         final dateStr = selectedDate.toIso8601String().split('T')[0];
@@ -289,13 +303,11 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           'date': dateStr,
           'meals': [recipe],
         };
-
         final response = await _httpClient.post(
           Uri.parse('$_ngrokUrl/add_to_calendar'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(payload),
         );
-
         if (response.statusCode == 200) {
           if (mounted) {
             setState(() {
@@ -331,7 +343,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
               'meals': meals,
             }),
           );
-
           if (response.statusCode == 200) {
             if (mounted) {
               setState(() {
@@ -352,7 +363,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
   }
 
   Future<void> _addAllToCalendar() async {
-    if (_isLoading || _mealPlan['week']!.isEmpty ?? true) {
+    if (_isLoading || (_mealPlan['week']?.isEmpty ?? true)) {
       _showSnackBar('Không có kế hoạch bữa ăn để thêm.', _theme.warning);
       return;
     }
@@ -361,7 +372,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
       title: 'Xác nhận',
       message: 'Thêm toàn bộ kế hoạch ${_selectedTimeFrame == 'week' ? '7 ngày' : '1 ngày'} vào lịch?',
     );
-
     if (!confirm) return;
 
     await _executeWithLoading(
@@ -374,12 +384,12 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           if (mounted) {
             setState(() => _dayLoading[dateKey] = true);
           }
+
           final payload = {
             'userId': widget.userId,
             'date': dateKey,
             'meals': dayMeals,
           };
-
           final response = await _httpClient.post(
             Uri.parse('$_ngrokUrl/add_to_calendar'),
             headers: {'Content-Type': 'application/json'},
@@ -397,6 +407,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           } else {
             throw Exception('Không thể thêm ngày $dateKey vào lịch: ${response.body}');
           }
+
           if (mounted) {
             setState(() => _dayLoading[dateKey] = false);
           }
@@ -415,7 +426,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/delete_meal_from_calendar?userId=${widget.userId}&date=$date&recipeId=$recipeId'),
           headers: {'Content-Type': 'application/json'},
         );
-
         if (response.statusCode == 200) {
           if (mounted) {
             setState(() {
@@ -443,7 +453,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
       title: 'Xác nhận xóa',
       message: 'Bạn có chắc chắn muốn xóa toàn bộ lịch bữa ăn?',
     );
-
     if (!confirm) return;
 
     await _executeWithLoading(
@@ -452,7 +461,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/delete_all_calendar_meals?userId=${widget.userId}'),
           headers: {'Content-Type': 'application/json'},
         );
-
         if (response.statusCode == 200) {
           if (mounted) {
             setState(() {
@@ -484,7 +492,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           Uri.parse('$_ngrokUrl/delete_meal_from_calendar?userId=${widget.userId}&date=$dateKey'),
           headers: {'Content-Type': 'application/json'},
         );
-
         if (response.statusCode == 200) {
           if (mounted) {
             setState(() {
@@ -531,6 +538,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           for (var day in mealPlanData) {
             final date = day['day'] as String? ?? '';
             if (date.isEmpty) continue;
+
             final meals = day['meals'] as Map<String, dynamic>? ?? {};
             processedWeek[date] = [];
             _addedToCalendar[date] = false;
@@ -608,7 +616,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'userId': widget.userId}),
           );
-
           if (response.statusCode == 200) {
             if (mounted) {
               setState(() {
@@ -623,8 +630,8 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
         } else {
           final meals = _mealPlan['week'];
           if (meals == null) throw Exception('Kế hoạch bữa ăn chưa được khởi tạo');
-
           final recipe = meals.values.expand((e) => e).firstWhere((r) => r['id'].toString() == recipeId, orElse: () => {});
+
           if (recipe.isEmpty) throw Exception('Không tìm thấy công thức');
 
           final payload = {
@@ -648,7 +655,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(payload),
           );
-
           if (response.statusCode == 200) {
             if (mounted) {
               setState(() {
@@ -752,6 +758,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           'diets': data['diets'] as List<dynamic>? ?? [],
           'relevanceScore': data['relevanceScore']?.toDouble() ?? 0.0,
         };
+
         if (_recipeCache.length >= _maxCacheSize) {
           _recipeCache.remove(_recipeCache.keys.first);
         }
@@ -772,6 +779,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
     }
 
     var detailedRecipe = Map<String, dynamic>.from(recipe);
+
     await _executeWithLoading(
           () async {
         if (detailedRecipe['instructions'] == null ||
@@ -799,7 +807,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             'relevanceScore': recipe['relevanceScore']?.toDouble() ?? 0.0,
           };
         }
-
         if (detailedRecipe['instructions'] is List) {
           detailedRecipe['instructions'] = (detailedRecipe['instructions'] as List).join('\n');
         }
@@ -854,7 +861,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             Uri.parse('$_ngrokUrl/get_calendar_meals?userId=${widget.userId}&date=$dateKey'),
             headers: {'Content-Type': 'application/json'},
           );
-
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body);
             meals = List<Map<String, dynamic>>.from(data['meals'] ?? []);
@@ -985,7 +991,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
         if (clearError) _errorMessage = null;
       });
     }
-
     try {
       await action();
     } catch (e, stackTrace) {
@@ -1035,7 +1040,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
   Widget _buildRecipeTile(Map<String, dynamic> recipe) {
     final recipeId = recipe['id']?.toString() ?? '';
     final isFavorite = _favoriteRecipeIds.contains(recipeId);
-
     return Dismissible(
       key: Key(recipeId),
       direction: DismissDirection.horizontal,
@@ -1073,37 +1077,51 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
           _deleteCalendarMeal(dateKey, recipeId);
         }
       },
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        leading: _RecipeImage(imageUrl: recipe['image']?.toString(), theme: _theme),
-        title: Text(
-          recipe['title']?.toString() ?? 'Không có tiêu đề',
-          style: TextStyle(
-            color: _theme.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: _theme.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(_theme.isDarkMode ? 77 : 13),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        subtitle: Text(
-          recipe['timeSlot'] != null
-              ? {'morning': 'Sáng', 'afternoon': 'Trưa', 'evening': 'Tối'}[recipe['timeSlot']] ?? 'Khác'
-              : 'Không xác định',
-          style: TextStyle(
-            color: _theme.textSecondary,
-            fontSize: 12,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          leading: _RecipeImage(imageUrl: recipe['image']?.toString(), theme: _theme),
+          title: Text(
+            recipe['title']?.toString() ?? 'Không có tiêu đề',
+            style: TextStyle(
+              color: _theme.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ),
-        trailing: IconButton(
-          icon: Icon(
-            isFavorite ? Icons.favorite : Icons.favorite_border,
-            color: isFavorite ? _theme.error : _theme.textSecondary,
-            size: 20,
+          subtitle: Text(
+            recipe['timeSlot'] != null
+                ? {'morning': 'Sáng', 'afternoon': 'Trưa', 'evening': 'Tối'}[recipe['timeSlot']] ?? 'Khác'
+                : 'Không xác định',
+            style: TextStyle(
+              color: _theme.textSecondary,
+              fontSize: 14,
+            ),
           ),
-          onPressed: _isLoading ? null : () => _toggleFavorite(recipeId, isFavorite),
+          trailing: IconButton(
+            icon: Icon(
+              isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: isFavorite ? _theme.error : _theme.textSecondary,
+              size: 24,
+            ),
+            onPressed: _isLoading ? null : () => _toggleFavorite(recipeId, isFavorite),
+          ),
+          onTap: () => _showRecipeDetails(recipe),
         ),
-        onTap: () => _showRecipeDetails(recipe),
       ),
     );
   }
@@ -1114,29 +1132,36 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
       children: [
         Row(
           children: [
-            Icon(icon ?? Icons.check_circle, color: color ?? _theme.primary, size: 18),
+            Icon(icon ?? Icons.check_circle, color: color ?? _theme.primary, size: 20),
             const SizedBox(width: 8),
             Text(
               title,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: _getFontSize(context, 18),
                 fontWeight: FontWeight.bold,
                 color: _theme.textPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         if (items.isEmpty)
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: _theme.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(_theme.isDarkMode ? 77 : 13),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: Text(
               'Không có nguyên liệu',
-              style: TextStyle(color: _theme.textSecondary, fontSize: 14),
+              style: TextStyle(color: _theme.textSecondary, fontSize: _getFontSize(context, 14)),
             ),
           )
         else
@@ -1145,21 +1170,28 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             physics: const NeverScrollableScrollPhysics(),
             itemCount: items.length,
             itemBuilder: (context, index) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: (color ?? _theme.primary).withAlpha(26),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: (color ?? _theme.primary).withAlpha(77)),
+                color: (color ?? _theme.primary).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: (color ?? _theme.primary).withOpacity(0.3)),
+                boxShadow: [
+                  BoxShadow(
+                    color: (color ?? _theme.primary).withOpacity(0.05),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  Icon(Icons.circle, color: color ?? _theme.primary, size: 10),
-                  const SizedBox(width: 8),
+                  Icon(Icons.circle, color: color ?? _theme.primary, size: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       items[index],
-                      style: TextStyle(color: _theme.textPrimary, fontSize: 14),
+                      style: TextStyle(color: _theme.textPrimary, fontSize: _getFontSize(context, 15)),
                     ),
                   ),
                 ],
@@ -1176,6 +1208,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
     const maxYScaleFactor = 1.2;
 
     final nutrientColors = [_theme.primary, _theme.accent, _theme.success, _theme.secondary];
+
     final filteredNutrients = nutrients
         .where((n) => n is Map<String, dynamic> &&
         keyNutrients.contains(n['name']) &&
@@ -1196,7 +1229,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
     if (filteredNutrients.isEmpty || nutrientData.values.every((value) => value == 0.0)) {
       return Text(
         'Không có dữ liệu dinh dưỡng hợp lệ',
-        style: TextStyle(fontSize: _getFontSize(context, 13), color: _theme.textSecondary),
+        style: TextStyle(fontSize: _getFontSize(context, 14), color: _theme.textSecondary),
       );
     }
 
@@ -1211,24 +1244,24 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
         Text(
           'Dinh dưỡng',
           style: TextStyle(
-            fontSize: _getFontSize(context, 16),
+            fontSize: _getFontSize(context, 18),
             fontWeight: FontWeight.bold,
             color: _theme.textPrimary,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Container(
           height: chartHeight,
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: _theme.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _theme.secondary, width: 1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _theme.secondary.withOpacity(0.3), width: 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withAlpha(_theme.isDarkMode ? 77 : 13),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -1250,7 +1283,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
                       backDrawRodData: BackgroundBarChartRodData(
                         show: true,
                         toY: maxY,
-                        color: _theme.background,
+                        color: _theme.background.withOpacity(0.5),
                       ),
                     ),
                   ],
@@ -1266,13 +1299,13 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
                       if (index >= 0 && index < keyNutrients.length) {
                         final label = keyNutrients[index] == 'Carbohydrates' ? 'Carbs' : keyNutrients[index];
                         return Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             label == 'Calories'
                                 ? 'Calo'
                                 : label == 'Fat'
                                 ? 'Chất béo'
-                                : label == 'Carbohydrates'
+                                : label == 'Carbs'
                                 ? 'Tinh bột'
                                 : 'Chất đạm',
                             style: TextStyle(
@@ -1302,13 +1335,13 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
               ),
               borderData: FlBorderData(
                 show: true,
-                border: Border.all(color: _theme.secondary, width: 1),
+                border: Border.all(color: _theme.secondary.withOpacity(0.3), width: 1),
               ),
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
                 getDrawingHorizontalLine: (value) => FlLine(
-                  color: _theme.secondary,
+                  color: _theme.secondary.withOpacity(0.2),
                   strokeWidth: 1,
                 ),
               ),
@@ -1361,9 +1394,9 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         ...filteredNutrients.map((nutrient) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1375,11 +1408,11 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
                     : nutrient['name'] == 'Carbohydrates'
                     ? 'Tinh bột'
                     : 'Chất đạm',
-                style: TextStyle(fontSize: _getFontSize(context, 13), color: _theme.textPrimary),
+                style: TextStyle(fontSize: _getFontSize(context, 15), color: _theme.textPrimary),
               ),
               Text(
                 '${(nutrient['amount'] as num).toStringAsFixed(1)} ${nutrient['unit']}',
-                style: TextStyle(fontSize: _getFontSize(context, 13), color: _theme.textPrimary),
+                style: TextStyle(fontSize: _getFontSize(context, 15), color: _theme.textPrimary, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -1402,98 +1435,190 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
 
     return Scaffold(
       backgroundColor: _theme.background,
-      appBar: AppBar(
-        backgroundColor: _theme.surface,
-        elevation: 0,
-        title: SlideTransition(
-          position: _headerSlideAnimation,
-          child: Text(
-            'Kế hoạch bữa ăn',
-            style: TextStyle(
-              color: _theme.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.calendar_today, color: _theme.primary),
-            onPressed: _showCalendar,
-            tooltip: 'Xem lịch bữa ăn',
-          ),
-        ],
-      ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
+      body: SafeArea(
         child: Column(
           children: [
-            _HeaderSection(
-              theme: _theme,
-              isLoading: _isLoading,
-              selectedTimeFrame: _selectedTimeFrame,
-              selectedDiet: _selectedDiet,
-              targetCalories: _targetCalories,
-              showAdvancedOptions: _showAdvancedOptions,
-              useFridgeIngredients: _useFridgeIngredients,
-              selectedFridgeId: _selectedFridgeId,
-              userFridges: _userFridges,
-              timeFrameTranslations: _timeFrameTranslations,
-              diets: _diets,
-              onTimeFrameChanged: (value) => setState(() => _selectedTimeFrame = value ?? 'week'),
-              onDietChanged: (value) => setState(() => _selectedDiet = value),
-              onCaloriesChanged: (value) => setState(() => _targetCalories = int.tryParse(value) ?? 2000),
-              onToggleAdvancedOptions: () => setState(() => _showAdvancedOptions = !_showAdvancedOptions),
-              onUseFridgeChanged: (value) => setState(() {
-                _useFridgeIngredients = value ?? false;
-                if (!_useFridgeIngredients) _selectedFridgeId = null;
-              }),
-              onFridgeChanged: (value) => setState(() => _selectedFridgeId = value),
-              onGeneratePlan: _generateWeeklyMealPlan,
-              onAddAllToCalendar: _addAllToCalendar,
-              onDeleteAllCalendar: _deleteAllCalendarMeals,
-              focusedDay: _focusedDay,
-              selectedDay: _selectedDay,
-              calendarDaysWithRecipes: _calendarDaysWithRecipes,
-              onDaySelected: (selectedDay, focusedDay) {
-                setState(() {
-                  _selectedDay = selectedDay;
-                  _focusedDay = focusedDay;
-                });
-                _showRecipesForDay(selectedDay);
-              },
-            ),
-            if (_errorMessage != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                color: _theme.error.withOpacity(0.1),
-                child: Text(
-                  _errorMessage!,
-                  style: TextStyle(color: _theme.error, fontSize: 14),
+            // Modern Header
+            SlideTransition(
+              position: _headerSlideAnimation,
+              child: Container(
+                margin: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_theme.primary, _theme.accent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _theme.primary.withOpacity(0.4),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -50,
+                      top: -50,
+                      child: Container(
+                        width: 150,
+                        height: 150,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: -20,
+                      bottom: -30,
+                      child: Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.05),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Row(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    gradient: RadialGradient(
+                                      colors: [_theme.secondary, Colors.white.withOpacity(0.3)],
+                                      radius: 0.8,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Kế hoạch bữa ăn',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: Icon(Icons.calendar_today, color: Colors.white),
+                              onPressed: _showCalendar,
+                              tooltip: 'Xem lịch bữa ăn',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ),
             Expanded(
-              child: _isLoading
-                  ? _ShimmerList(theme: _theme)
-                  : mealsForSelectedDay.isEmpty
-                  ? _EmptyState(
-                theme: _theme,
-                showCalendarButton: _calendarDaysWithRecipes.contains(dateKey),
-                onShowCalendar: () => _showRecipesForDay(_selectedDay),
-              )
-                  : ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: mealsForSelectedDay.length,
-                itemBuilder: (context, index) => _buildRecipeTile(mealsForSelectedDay[index]),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Column(
+                  children: [
+                    _HeaderSection(
+                      theme: _theme,
+                      isLoading: _isLoading,
+                      selectedTimeFrame: _selectedTimeFrame,
+                      selectedDiet: _selectedDiet,
+                      targetCalories: _targetCalories,
+                      showAdvancedOptions: _showAdvancedOptions,
+                      useFridgeIngredients: _useFridgeIngredients,
+                      selectedFridgeId: _selectedFridgeId,
+                      userFridges: _userFridges,
+                      timeFrameTranslations: _timeFrameTranslations,
+                      diets: _diets,
+                      onTimeFrameChanged: (value) => setState(() => _selectedTimeFrame = value ?? 'week'),
+                      onDietChanged: (value) => setState(() => _selectedDiet = value),
+                      onCaloriesChanged: (value) => setState(() => _targetCalories = int.tryParse(value) ?? 2000),
+                      onToggleAdvancedOptions: () => setState(() => _showAdvancedOptions = !_showAdvancedOptions),
+                      onUseFridgeChanged: (value) => setState(() {
+                        _useFridgeIngredients = value ?? false;
+                        if (!_useFridgeIngredients) _selectedFridgeId = null;
+                      }),
+                      onFridgeChanged: (value) => setState(() => _selectedFridgeId = value),
+                      onGeneratePlan: _generateWeeklyMealPlan,
+                      onAddAllToCalendar: _addAllToCalendar,
+                      onDeleteAllCalendar: _deleteAllCalendarMeals,
+                      focusedDay: _focusedDay,
+                      selectedDay: _selectedDay,
+                      calendarDaysWithRecipes: _calendarDaysWithRecipes,
+                      onDaySelected: (selectedDay, focusedDay) {
+                        setState(() {
+                          _selectedDay = selectedDay;
+                          _focusedDay = focusedDay;
+                        });
+                        _showRecipesForDay(selectedDay);
+                      },
+                    ),
+                    if (_errorMessage != null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        color: _theme.error.withOpacity(0.1),
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: _theme.error, fontSize: 14),
+                        ),
+                      ),
+                    Expanded(
+                      child: _isLoading
+                          ? _ShimmerList(theme: _theme)
+                          : mealsForSelectedDay.isEmpty
+                          ? _EmptyState(
+                        theme: _theme,
+                        showCalendarButton: _calendarDaysWithRecipes.contains(dateKey),
+                        onShowCalendar: () => _showRecipesForDay(_selectedDay),
+                      )
+                          : ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: mealsForSelectedDay.length,
+                        itemBuilder: (context, index) => _buildRecipeTile(mealsForSelectedDay[index]),
+                      ),
+                    ),
+                    if (mealsForSelectedDay.isNotEmpty && !isDayInCalendar)
+                      _FooterActions(
+                        theme: _theme,
+                        isLoading: _dayLoading[dateKey] ?? false,
+                        onAddToCalendar: () => _addDayToCalendar(_selectedDay),
+                        onRemoveFromCalendar: () => _removeDayFromCalendar(_selectedDay),
+                      ),
+                  ],
+                ),
               ),
             ),
-            if (mealsForSelectedDay.isNotEmpty && !isDayInCalendar)
-              _FooterActions(
-                theme: _theme,
-                isLoading: _dayLoading[dateKey] ?? false,
-                onAddToCalendar: () => _addDayToCalendar(_selectedDay),
-                onRemoveFromCalendar: () => _removeDayFromCalendar(_selectedDay),
-              ),
           ],
         ),
       ),
@@ -1510,29 +1635,36 @@ class _RecipeImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 60,
+      height: 60,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         color: theme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: imageUrl?.isNotEmpty ?? false
           ? ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         child: Image.network(
           imageUrl!,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => Icon(
             Icons.restaurant,
             color: theme.primary,
-            size: 24,
+            size: 30,
           ),
         ),
       )
           : Icon(
         Icons.restaurant,
         color: theme.primary,
-        size: 24,
+        size: 30,
       ),
     );
   }
@@ -1572,24 +1704,31 @@ class _RecipeDetailsSheet extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: theme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(theme.isDarkMode ? 0.3 : 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: DefaultTabController(
         length: 4,
         child: Column(
           children: [
             Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.symmetric(vertical: 8),
+              width: 50,
+              height: 5,
+              margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: theme.isDarkMode ? Colors.grey[400]! : Colors.grey[300]!,
-                borderRadius: BorderRadius.circular(2),
+                color: theme.textSecondary.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2.5),
               ),
             ),
             TabBar(
               labelColor: theme.primary,
-              unselectedLabelColor: theme.secondary,
+              unselectedLabelColor: theme.textSecondary,
               indicatorColor: theme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               labelPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1598,12 +1737,12 @@ class _RecipeDetailsSheet extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.info_outline, size: 16),
-                      const SizedBox(width: 4),
+                      const Icon(Icons.info_outline, size: 18),
+                      const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Tổng quan',
-                          style: TextStyle(fontSize: getFontSize(12), overflow: TextOverflow.ellipsis),
+                          style: TextStyle(fontSize: getFontSize(14), overflow: TextOverflow.ellipsis),
                           maxLines: 1,
                         ),
                       ),
@@ -1614,12 +1753,12 @@ class _RecipeDetailsSheet extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.local_dining, size: 16),
-                      const SizedBox(width: 4),
+                      const Icon(Icons.local_dining, size: 18),
+                      const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Nguyên liệu',
-                          style: TextStyle(fontSize: getFontSize(12), overflow: TextOverflow.ellipsis),
+                          style: TextStyle(fontSize: getFontSize(14), overflow: TextOverflow.ellipsis),
                           maxLines: 1,
                         ),
                       ),
@@ -1630,12 +1769,12 @@ class _RecipeDetailsSheet extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.book, size: 16),
-                      const SizedBox(width: 4),
+                      const Icon(Icons.book, size: 18),
+                      const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Hướng dẫn',
-                          style: TextStyle(fontSize: getFontSize(12), overflow: TextOverflow.ellipsis),
+                          style: TextStyle(fontSize: getFontSize(14), overflow: TextOverflow.ellipsis),
                           maxLines: 1,
                         ),
                       ),
@@ -1646,12 +1785,12 @@ class _RecipeDetailsSheet extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.calendar_today, size: 16),
-                      const SizedBox(width: 4),
+                      const Icon(Icons.calendar_today, size: 18),
+                      const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Lịch',
-                          style: TextStyle(fontSize: getFontSize(12), overflow: TextOverflow.ellipsis),
+                          style: TextStyle(fontSize: getFontSize(14), overflow: TextOverflow.ellipsis),
                           maxLines: 1,
                         ),
                       ),
@@ -1662,11 +1801,11 @@ class _RecipeDetailsSheet extends StatelessWidget {
             ),
             Expanded(
               child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(theme.primary)))
                   : TabBarView(
                 children: [
                   SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1677,7 +1816,7 @@ class _RecipeDetailsSheet extends StatelessWidget {
                               child: Text(
                                 recipe['title'].toString(),
                                 style: TextStyle(
-                                  fontSize: getFontSize(20),
+                                  fontSize: getFontSize(24),
                                   fontWeight: FontWeight.bold,
                                   color: theme.textPrimary,
                                 ),
@@ -1687,62 +1826,66 @@ class _RecipeDetailsSheet extends StatelessWidget {
                             ),
                             IconButton(
                               icon: isLoading
-                                  ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                  ? SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(theme.primary)),
                               )
                                   : Icon(
                                 recipe['isFavorite'] == true ? Icons.favorite : Icons.favorite_border,
                                 color: recipe['isFavorite'] == true ? theme.error : theme.textSecondary,
-                                size: 20,
+                                size: 28,
                               ),
                               onPressed: isLoading ? null : onToggleFavorite,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Hero(
                           tag: 'recipe_image_${recipe['id']}',
                           child: recipe['image'].toString().isNotEmpty
                               ? Container(
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withAlpha(26),
-                                  blurRadius: 5,
-                                  offset: const Offset(0, 3),
+                                  color: Colors.black.withOpacity(theme.isDarkMode ? 0.2 : 0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 5),
                                 ),
                               ],
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
                               child: Image.network(
                                 recipe['image'].toString(),
-                                height: 160,
+                                height: 200,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
                                 loadingBuilder: (context, child, loadingProgress) {
                                   if (loadingProgress == null) return child;
                                   return SizedBox(
-                                    height: 160,
+                                    height: 200,
                                     child: Center(
                                       child: CircularProgressIndicator(
                                         value: loadingProgress.expectedTotalBytes != null
                                             ? loadingProgress.cumulativeBytesLoaded /
                                             (loadingProgress.expectedTotalBytes ?? 1)
                                             : null,
+                                        valueColor: AlwaysStoppedAnimation<Color>(theme.primary),
                                       ),
                                     ),
                                   );
                                 },
                                 errorBuilder: (context, error, stackTrace) => Container(
-                                  height: 160,
-                                  color: theme.surface,
+                                  height: 200,
+                                  decoration: BoxDecoration(
+                                    color: theme.surface,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
                                   child: Icon(
                                     Icons.broken_image,
-                                    size: 36,
+                                    size: 48,
                                     color: theme.textSecondary,
                                   ),
                                 ),
@@ -1750,82 +1893,111 @@ class _RecipeDetailsSheet extends StatelessWidget {
                             ),
                           )
                               : Container(
-                            height: 160,
+                            height: 200,
                             decoration: BoxDecoration(
                               color: theme.surface,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(theme.isDarkMode ? 0.2 : 0.1),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
                             ),
                             child: Center(
                               child: Icon(
                                 Icons.restaurant,
-                                size: 36,
+                                size: 48,
                                 color: theme.textSecondary,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 20),
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: theme.primary.withAlpha(26),
-                            borderRadius: BorderRadius.circular(8),
+                            gradient: LinearGradient(
+                              colors: [theme.primary.withOpacity(0.1), theme.accent.withOpacity(0.1)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.primary.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.access_time, color: theme.primary, size: 18),
-                              const SizedBox(width: 8),
+                              Icon(Icons.access_time, color: theme.primary, size: 20),
+                              const SizedBox(width: 12),
                               Text(
                                 'Thời gian chuẩn bị: ${recipe['readyInMinutes'].toString()} phút',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: getFontSize(16),
                                   fontWeight: FontWeight.w600,
-                                  color: theme.primary,
+                                  color: theme.textPrimary,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 20),
                         recipe['nutrition']?.isNotEmpty ?? false
                             ? buildNutritionSection(recipe['nutrition'])
                             : Text(
                           'Không có thông tin dinh dưỡng',
-                          style: TextStyle(fontSize: 13, color: theme.textSecondary),
+                          style: TextStyle(fontSize: getFontSize(14), color: theme.textSecondary),
                         ),
                       ],
                     ),
                   ),
                   SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
                         buildIngredientsSection('Nguyên liệu cần thiết', requiredIngredients, theme.primary, Icons.local_dining),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 20),
                         if (recipe['ingredientsMissing']?.isNotEmpty ?? false)
                           Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(colors: [theme.accent, theme.primary]),
-                              borderRadius: BorderRadius.circular(8),
+                              gradient: LinearGradient(
+                                colors: [theme.accent, theme.primary],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: theme.accent.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
                             ),
                             child: ElevatedButton(
                               onPressed: isLoading ? null : onAddToShoppingList,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.add_shopping_cart, color: Colors.white, size: 18),
-                                  const SizedBox(width: 8),
+                                  const Icon(Icons.add_shopping_cart, color: Colors.white, size: 20),
+                                  const SizedBox(width: 12),
                                   Text(
                                     isLoading ? 'Đang thêm...' : 'Thêm vào danh sách mua sắm',
-                                    style: const TextStyle(
-                                      fontSize: 13,
+                                    style: TextStyle(
+                                      fontSize: getFontSize(16),
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
                                     ),
@@ -1838,29 +2010,37 @@ class _RecipeDetailsSheet extends StatelessWidget {
                     ),
                   ),
                   SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Hướng dẫn',
                           style: TextStyle(
-                            fontSize: getFontSize(16),
+                            fontSize: getFontSize(18),
                             fontWeight: FontWeight.bold,
                             color: theme.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: theme.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: theme.secondary),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: theme.secondary.withOpacity(0.3)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Text(
                             recipe['instructions'].toString(),
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: getFontSize(15),
                               color: theme.textPrimary,
                               height: 1.5,
                             ),
@@ -1870,73 +2050,95 @@ class _RecipeDetailsSheet extends StatelessWidget {
                     ),
                   ),
                   SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Quản lý lịch',
                           style: TextStyle(
-                            fontSize: getFontSize(16),
+                            fontSize: getFontSize(18),
                             fontWeight: FontWeight.bold,
                             color: theme.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 16),
                         Container(
                           width: double.infinity,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [theme.primary, theme.accent]),
-                            borderRadius: BorderRadius.circular(8),
+                            gradient: LinearGradient(
+                              colors: [theme.primary, theme.accent],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.primary.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                           ),
                           child: ElevatedButton.icon(
                             onPressed: isLoading ? null : onAddToCalendar,
                             icon: isLoading
-                                ? const SizedBox(
-                              width: 18,
-                              height: 18,
+                                ? SizedBox(
+                              width: 20,
+                              height: 20,
                               child: CircularProgressIndicator(
                                 color: Colors.white,
                                 strokeWidth: 2,
                               ),
                             )
-                                : const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+                                : const Icon(Icons.calendar_today, color: Colors.white, size: 20),
                             label: Text(
                               isLoading ? 'Đang thêm...' : 'Thêm vào lịch',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: getFontSize(16),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 16),
                         Container(
                           width: double.infinity,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [theme.error, theme.warning]),
-                            borderRadius: BorderRadius.circular(8),
+                            gradient: LinearGradient(
+                              colors: [theme.error, theme.warning],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.error.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                           ),
                           child: ElevatedButton(
                             onPressed: isLoading ? null : onRemoveFromCalendar,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             ),
                             child: Text(
                               isLoading ? 'Đang xóa...' : 'Xóa khỏi lịch',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: getFontSize(16),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1944,7 +2146,8 @@ class _RecipeDetailsSheet extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -1984,22 +2187,40 @@ class _CalendarSheet extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: theme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(theme.isDarkMode ? 0.3 : 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 50,
+            height: 5,
+            margin: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: theme.isDarkMode ? Colors.grey[400]! : Colors.grey[300]!,
-              borderRadius: BorderRadius.circular(2),
+              color: theme.textSecondary.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2.5),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Text(
+              'Lịch bữa ăn',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: theme.textPrimary,
+              ),
             ),
           ),
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(theme.primary)))
                 : SingleChildScrollView(
               child: Column(
                 children: [
@@ -2013,9 +2234,11 @@ class _CalendarSheet extends StatelessWidget {
                       titleCentered: true,
                       titleTextStyle: TextStyle(
                         color: theme.textPrimary,
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
+                      leftChevronIcon: Icon(Icons.chevron_left, color: theme.primary),
+                      rightChevronIcon: Icon(Icons.chevron_right, color: theme.primary),
                     ),
                     calendarStyle: CalendarStyle(
                       todayDecoration: BoxDecoration(
@@ -2033,6 +2256,7 @@ class _CalendarSheet extends StatelessWidget {
                       outsideTextStyle: TextStyle(color: theme.textSecondary.withOpacity(0.5)),
                       defaultTextStyle: TextStyle(color: theme.textPrimary),
                       weekendTextStyle: TextStyle(color: theme.textPrimary),
+                      holidayTextStyle: TextStyle(color: theme.error),
                     ),
                     daysOfWeekStyle: DaysOfWeekStyle(
                       weekdayStyle: TextStyle(color: theme.textSecondary),
@@ -2075,8 +2299,8 @@ class _CalendarSheet extends StatelessWidget {
                             right: 1,
                             bottom: 1,
                             child: Container(
-                              width: 6,
-                              height: 6,
+                              width: 8,
+                              height: 8,
                               decoration: BoxDecoration(
                                 color: theme.accent,
                                 shape: BoxShape.circle,
@@ -2088,14 +2312,25 @@ class _CalendarSheet extends StatelessWidget {
                       },
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [theme.error, theme.warning]),
-                        borderRadius: BorderRadius.circular(8),
+                        gradient: LinearGradient(
+                          colors: [theme.error, theme.warning],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.error.withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: ElevatedButton(
                         onPressed: isLoading
@@ -2114,12 +2349,16 @@ class _CalendarSheet extends StatelessWidget {
                                 onPressed: () => Navigator.pop(context),
                                 child: Text('Hủy', style: TextStyle(color: theme.secondary)),
                               ),
-                              TextButton(
+                              ElevatedButton(
                                 onPressed: () {
                                   Navigator.pop(context);
-                                  onDeleteDay(DateTime.now());
+                                  onDeleteDay(DateTime.now()); // This will trigger deleteAllCalendarMeals
                                 },
-                                child: Text('Xóa', style: TextStyle(color: theme.error)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: theme.error,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                child: Text('Xóa', style: TextStyle(color: Colors.white)),
                               ),
                             ],
                           ),
@@ -2127,21 +2366,21 @@ class _CalendarSheet extends StatelessWidget {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         child: Text(
                           isLoading ? 'Đang xóa...' : 'Xóa toàn bộ lịch',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -2211,14 +2450,14 @@ class _HeaderSection extends StatelessWidget {
     final fontSize = screenWidth < 400 ? 13.0 : 15.0;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -2234,7 +2473,9 @@ class _HeaderSection extends StatelessWidget {
             calendarFormat: CalendarFormat.week,
             headerStyle: HeaderStyle(
               formatButtonVisible: false,
-              titleTextStyle: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+              titleTextStyle: TextStyle(color: theme.textPrimary, fontSize: fontSize + 2, fontWeight: FontWeight.bold),
+              leftChevronIcon: Icon(Icons.chevron_left, color: theme.primary),
+              rightChevronIcon: Icon(Icons.chevron_right, color: theme.primary),
             ),
             calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
@@ -2269,8 +2510,8 @@ class _HeaderSection extends StatelessWidget {
                     right: 1,
                     bottom: 1,
                     child: Container(
-                      width: 6,
-                      height: 6,
+                      width: 8,
+                      height: 8,
                       decoration: BoxDecoration(
                         color: theme.accent,
                         shape: BoxShape.circle,
@@ -2282,90 +2523,122 @@ class _HeaderSection extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: selectedTimeFrame,
-                  decoration: InputDecoration(
-                    labelText: 'Khung thời gian',
-                    labelStyle: TextStyle(color: theme.textSecondary),
-                    filled: true,
-                    fillColor: theme.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.secondary),
-                    ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.background.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.secondary.withOpacity(0.2)),
                   ),
-                  items: timeFrameTranslations.entries
-                      .map((entry) => DropdownMenuItem(
-                    value: entry.key,
-                    child: Text(
-                      entry.value,
-                      style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                  child: DropdownButtonFormField<String>(
+                    value: selectedTimeFrame,
+                    decoration: InputDecoration(
+                      labelText: 'Khung thời gian',
+                      labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500),
+                      filled: true,
+                      fillColor: Colors.transparent,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     ),
-                  ))
-                      .toList(),
-                  onChanged: isLoading ? null : onTimeFrameChanged,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: selectedDiet,
-                  decoration: InputDecoration(
-                    labelText: 'Chế độ ăn',
-                    labelStyle: TextStyle(color: theme.textSecondary),
-                    filled: true,
-                    fillColor: theme.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: theme.secondary),
-                    ),
-                  ),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Không chọn')),
-                    ...diets.map((diet) => DropdownMenuItem(
-                      value: diet,
+                    items: timeFrameTranslations.entries
+                        .map((entry) => DropdownMenuItem(
+                      value: entry.key,
                       child: Text(
-                        diet == 'Vegetarian'
-                            ? 'Ăn chay'
-                            : diet == 'Vegan'
-                            ? 'Thuần chay'
-                            : diet == 'Gluten Free'
-                            ? 'Không gluten'
-                            : diet == 'Ketogenic'
-                            ? 'Keto'
-                            : 'Ăn cá',
+                        entry.value,
                         style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
                       ),
-                    )),
-                  ],
-                  onChanged: isLoading ? null : onDietChanged,
+                    ))
+                        .toList(),
+                    onChanged: isLoading ? null : onTimeFrameChanged,
+                    dropdownColor: theme.surface,
+                    style: TextStyle(color: theme.textPrimary),
+                    icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.background.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.secondary.withOpacity(0.2)),
+                  ),
+                  child: DropdownButtonFormField<String>(
+                    value: selectedDiet,
+                    decoration: InputDecoration(
+                      labelText: 'Chế độ ăn',
+                      labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500),
+                      filled: true,
+                      fillColor: Colors.transparent,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    ),
+                    items: [
+                      DropdownMenuItem(value: null, child: Text('Không chọn', style: TextStyle(color: theme.textPrimary, fontSize: fontSize))),
+                      ...diets.map((diet) => DropdownMenuItem(
+                        value: diet,
+                        child: Text(
+                          diet == 'Vegetarian'
+                              ? 'Ăn chay'
+                              : diet == 'Vegan'
+                              ? 'Thuần chay'
+                              : diet == 'Gluten Free'
+                              ? 'Không gluten'
+                              : diet == 'Ketogenic'
+                              ? 'Keto'
+                              : 'Ăn cá',
+                          style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                        ),
+                      )),
+                    ],
+                    onChanged: isLoading ? null : onDietChanged,
+                    dropdownColor: theme.surface,
+                    style: TextStyle(color: theme.textPrimary),
+                    icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          TextFormField(
-            initialValue: targetCalories.toString(),
-            decoration: InputDecoration(
-              labelText: 'Mục tiêu Calo',
-              labelStyle: TextStyle(color: theme.textSecondary),
-              filled: true,
-              fillColor: theme.background,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: theme.secondary),
-              ),
-              suffixText: 'kcal',
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: theme.background.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.secondary.withOpacity(0.2)),
             ),
-            keyboardType: TextInputType.number,
-            onChanged: onCaloriesChanged,
-            enabled: !isLoading,
+            child: TextFormField(
+              initialValue: targetCalories.toString(),
+              decoration: InputDecoration(
+                labelText: 'Mục tiêu Calo',
+                labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500),
+                filled: true,
+                fillColor: Colors.transparent,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                suffixText: 'kcal',
+                suffixStyle: TextStyle(color: theme.textSecondary, fontSize: fontSize),
+              ),
+              keyboardType: TextInputType.number,
+              onChanged: onCaloriesChanged,
+              enabled: !isLoading,
+              style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           TextButton.icon(
             onPressed: onToggleAdvancedOptions,
             icon: Icon(
@@ -2374,93 +2647,136 @@ class _HeaderSection extends StatelessWidget {
             ),
             label: Text(
               showAdvancedOptions ? 'Ẩn tùy chọn nâng cao' : 'Hiển thị tùy chọn nâng cao',
-              style: TextStyle(color: theme.primary, fontSize: fontSize),
+              style: TextStyle(color: theme.primary, fontSize: fontSize + 1, fontWeight: FontWeight.w600),
             ),
           ),
           if (showAdvancedOptions) ...[
-            CheckboxListTile(
-              title: Text(
-                'Sử dụng nguyên liệu từ tủ lạnh',
-                style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.background.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.secondary.withOpacity(0.2)),
               ),
-              value: useFridgeIngredients,
-              onChanged: isLoading ? null : onUseFridgeChanged,
-              activeColor: theme.primary,
-              checkColor: Colors.white,
-            ),
-            if (useFridgeIngredients && userFridges.isNotEmpty)
-              DropdownButtonFormField<String>(
-                value: selectedFridgeId,
-                decoration: InputDecoration(
-                  labelText: 'Chọn tủ lạnh',
-                  labelStyle: TextStyle(color: theme.textSecondary),
-                  filled: true,
-                  fillColor: theme.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: theme.secondary),
-                  ),
+              child: CheckboxListTile(
+                title: Text(
+                  'Sử dụng nguyên liệu từ tủ lạnh',
+                  style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
                 ),
-                items: userFridges
-                    .map<DropdownMenuItem<String>>((fridge) => DropdownMenuItem<String>(
-                  value: fridge['fridgeId'] as String,
-                  child: Text(
-                    fridge['name'] as String,
-                    style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
-                  ),
-                ))
-                    .toList(),
-                onChanged: isLoading ? null : onFridgeChanged,
+                value: useFridgeIngredients,
+                onChanged: isLoading ? null : onUseFridgeChanged,
+                activeColor: theme.primary,
+                checkColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
+            ),
+            const SizedBox(height: 12),
+            if (useFridgeIngredients && userFridges.isNotEmpty)
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.background.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.secondary.withOpacity(0.2)),
+                ),
+                child: DropdownButtonFormField<String>(
+                  value: selectedFridgeId,
+                  decoration: InputDecoration(
+                    labelText: 'Chọn tủ lạnh',
+                    labelStyle: TextStyle(color: theme.textSecondary, fontWeight: FontWeight.w500),
+                    filled: true,
+                    fillColor: Colors.transparent,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  ),
+                  items: userFridges
+                      .map<DropdownMenuItem<String>>((fridge) => DropdownMenuItem<String>(
+                    value: fridge['fridgeId'] as String,
+                    child: Text(
+                      fridge['name'] as String,
+                      style: TextStyle(color: theme.textPrimary, fontSize: fontSize),
+                    ),
+                  ))
+                      .toList(),
+                  onChanged: isLoading ? null : onFridgeChanged,
+                  dropdownColor: theme.surface,
+                  style: TextStyle(color: theme.textPrimary),
+                  icon: Icon(Icons.arrow_drop_down, color: theme.textSecondary),
+                ),
+              ),
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [theme.primary, theme.accent]),
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      colors: [theme.primary, theme.accent],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
                   child: ElevatedButton(
                     onPressed: isLoading ? null : onGeneratePlan,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
                       isLoading ? 'Đang tạo...' : 'Tạo kế hoạch',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: fontSize,
+                        fontSize: fontSize + 1,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [theme.accent, theme.primary]),
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      colors: [theme.accent, theme.primary],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.accent.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
                   ),
                   child: ElevatedButton(
                     onPressed: isLoading ? null : onAddAllToCalendar,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
                       isLoading ? 'Đang thêm...' : 'Thêm tất cả vào lịch',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: fontSize,
+                        fontSize: fontSize + 1,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -2469,26 +2785,37 @@ class _HeaderSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [theme.error, theme.warning]),
-              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                colors: [theme.error, theme.warning],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.error.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: ElevatedButton(
               onPressed: isLoading ? null : onDeleteAllCalendar,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               child: Text(
                 isLoading ? 'Đang xóa...' : 'Xóa toàn bộ lịch',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: fontSize,
+                  fontSize: fontSize + 1,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -2499,6 +2826,7 @@ class _HeaderSection extends StatelessWidget {
     );
   }
 }
+
 class _ShimmerList extends StatelessWidget {
   final ThemeColors theme;
 
@@ -2507,35 +2835,56 @@ class _ShimmerList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       itemCount: 5,
       itemBuilder: (context, index) => Shimmer.fromColors(
         baseColor: theme.isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
         highlightColor: theme.isDarkMode ? Colors.grey[600]! : Colors.grey[200]!,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
             color: theme.surface,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            leading: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-            title: Container(
-              height: 16,
-              width: double.infinity,
-              color: Colors.white,
-            ),
-            subtitle: Container(
-              height: 12,
-              width: 100,
-              color: Colors.white,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 18,
+                        width: double.infinity,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        height: 14,
+                        width: 150,
+                        color: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2558,46 +2907,94 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.restaurant_menu,
-            size: 48,
-            color: theme.textSecondary,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Chưa có kế hoạch bữa ăn',
-            style: TextStyle(
-              fontSize: 16,
-              color: theme.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tạo kế hoạch mới hoặc xem lịch!',
-            style: TextStyle(
-              fontSize: 14,
-              color: theme.textSecondary,
-            ),
-          ),
-          if (showCalendarButton) ...[
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: onShowCalendar,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text(
-                'Xem lịch',
-                style: TextStyle(color: Colors.white),
-              ),
+      child: Container(
+        margin: const EdgeInsets.all(40),
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          color: theme.surface,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(theme.isDarkMode ? 0.3 : 0.05),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
           ],
-        ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [theme.primary.withOpacity(0.2), theme.accent.withOpacity(0.2)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                Icons.restaurant_menu_outlined,
+                size: 64,
+                color: theme.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Chưa có kế hoạch bữa ăn',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: theme.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Tạo kế hoạch mới hoặc xem lịch!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: theme.textSecondary,
+              ),
+            ),
+            if (showCalendarButton) ...[
+              const SizedBox(height: 24),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [theme.primary, theme.accent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.primary.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: onShowCalendar,
+                  icon: const Icon(Icons.calendar_today, color: Colors.white),
+                  label: const Text(
+                    'Xem lịch',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -2619,14 +3016,14 @@ class _FooterActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
@@ -2635,49 +3032,71 @@ class _FooterActions extends StatelessWidget {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [theme.primary, theme.accent]),
-                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  colors: [theme.primary, theme.accent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.primary.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: ElevatedButton(
                 onPressed: isLoading ? null : onAddToCalendar,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: Text(
                   isLoading ? 'Đang thêm...' : 'Thêm vào lịch',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [theme.error, theme.warning]),
-                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  colors: [theme.error, theme.warning],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.error.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: ElevatedButton(
                 onPressed: isLoading ? null : onRemoveFromCalendar,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: Text(
                   isLoading ? 'Đang xóa...' : 'Xóa khỏi lịch',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 13,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -2710,25 +3129,32 @@ class _DayRecipesSheet extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: theme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(theme.isDarkMode ? 0.3 : 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            width: 50,
+            height: 5,
+            margin: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: theme.isDarkMode ? Colors.grey[400]! : Colors.grey[300]!,
-              borderRadius: BorderRadius.circular(2),
+              color: theme.textSecondary.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2.5),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Text(
               'Bữa ăn ngày ${DateFormat('d MMMM, yyyy', 'vi_VN').format(day)}',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: theme.textPrimary,
               ),
@@ -2736,34 +3162,49 @@ class _DayRecipesSheet extends StatelessWidget {
           ),
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(theme.primary)))
                 : ListView.builder(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(20),
               itemCount: meals.length,
               itemBuilder: (context, index) {
                 final recipe = meals[index];
-                return ListTile(
-                  leading: _RecipeImage(imageUrl: recipe['image']?.toString(), theme: theme),
-                  title: Text(
-                    recipe['title']?.toString() ?? 'Không có tiêu đề',
-                    style: TextStyle(
-                      color: theme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: theme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(theme.isDarkMode ? 77 : 13),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  subtitle: Text(
-                    recipe['timeSlot'] != null
-                        ? {'morning': 'Sáng', 'afternoon': 'Trưa', 'evening': 'Tối'}[recipe['timeSlot']] ?? 'Khác'
-                        : 'Không xác định',
-                    style: TextStyle(
-                      color: theme.textSecondary,
-                      fontSize: 12,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    leading: _RecipeImage(imageUrl: recipe['image']?.toString(), theme: theme),
+                    title: Text(
+                      recipe['title']?.toString() ?? 'Không có tiêu đề',
+                      style: TextStyle(
+                        color: theme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    subtitle: Text(
+                      recipe['timeSlot'] != null
+                          ? {'morning': 'Sáng', 'afternoon': 'Trưa', 'evening': 'Tối'}[recipe['timeSlot']] ?? 'Khác'
+                          : 'Không xác định',
+                      style: TextStyle(
+                        color: theme.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                    onTap: () => onRecipeTap(recipe),
                   ),
-                  onTap: () => onRecipeTap(recipe),
                 );
               },
             ),

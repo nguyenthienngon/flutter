@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:debounce_throttle/debounce_throttle.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'config.dart';
 import 'package:intl/intl.dart';
+import 'config.dart'; // Đảm bảo đường dẫn đúng
 
 class FoodDetailScreen extends StatefulWidget {
   final String storageLogId;
@@ -39,8 +39,10 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
   String? _selectedAreaId;
   DateTime? _storageDate;
   String? _selectedUnitName;
+
   List<Map<String, dynamic>> _storageAreas = [];
   List<Map<String, dynamic>> _units = [];
+
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -80,7 +82,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-
     _headerAnimationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -89,15 +90,12 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
     );
-
     _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
-
     _headerSlideAnimation = Tween<double>(begin: -50.0, end: 0.0).animate(
       CurvedAnimation(parent: _headerAnimationController, curve: Curves.easeOut),
     );
@@ -179,7 +177,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
           };
         }
       }
-
       // Fetch imageUrl from Firestore
       if (_foodLog?['foodId'] != null) {
         final foodDoc = await _firestore.collection('Foods').doc(_foodLog!['foodId']).get();
@@ -188,13 +185,11 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
           _foodLog!['imageUrl'] = foodData?['imageUrl'];
         }
       }
-
       // Fetch categoryName from API if needed
       if (_foodLog?['categoryName'] == 'Unknown Category' && _foodLog?['foodId'] != null) {
         final categoryName = await _fetchCategoryNameFromApi(_foodLog!['foodId']);
         _foodLog!['categoryName'] = categoryName;
       }
-
       _updateUIFromLog();
     } catch (e) {
       print('Error fetching initial data: $e');
@@ -260,10 +255,12 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     _selectedAreaId = _foodLog?['areaId'];
     _selectedExpiryDate = _parseDate(_foodLog?['expiryDate']);
     _storageDate = _parseDate(_foodLog?['storageDate']);
-    _selectedUnitName = _foodLog?['unitName'] ?? _units.firstWhere(
-          (unit) => unit['id'] == _foodLog?['unitId'],
-      orElse: () => {'name': 'Unknown Unit'},
-    )['name'] ?? 'Unknown Unit';
+    _selectedUnitName = _foodLog?['unitName'] ??
+        _units.firstWhere(
+              (unit) => unit['id'] == _foodLog?['unitId'],
+          orElse: () => {'name': 'Unknown Unit'},
+        )['name'] ??
+        'Unknown Unit';
   }
 
   DateTime? _parseDate(dynamic dateData) {
@@ -333,7 +330,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       // Cập nhật _foodLog với dữ liệu mới
       final updatedFoodDoc = await foodRef.get();
       final updatedStorageLogDoc = await storageLogRef.get();
-
       if (updatedFoodDoc.exists && updatedStorageLogDoc.exists) {
         _foodLog = {
           ..._foodLog!,
@@ -363,6 +359,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       if (mounted) setState(() => _isSaving = false);
     }
   }
+
   Future<void> _deleteFoodAndStorageLogs() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -379,7 +376,13 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
               child: Icon(Icons.warning_rounded, color: errorColor, size: 24),
             ),
             const SizedBox(width: 12),
-            const Text('Xác nhận xóa', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Xác nhận xóa',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: currentTextPrimaryColor, // Đồng bộ màu chữ
+              ),
+            ),
           ],
         ),
         content: Text(
@@ -416,6 +419,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       await _firestore.runTransaction((transaction) async {
         final foodRef = _firestore.collection('Foods').doc(foodId);
         final storageLogRef = _firestore.collection('StorageLogs').doc(widget.storageLogId);
+
         final foodDoc = await transaction.get(foodRef);
         final storageLogDoc = await transaction.get(storageLogRef);
 
@@ -506,6 +510,13 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
         decoration: BoxDecoration(
           color: currentSurfaceColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [ // Thêm boxShadow cho bottom sheet
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -550,6 +561,13 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                       border: Border.all(
                         color: isSelected ? Colors.transparent : currentTextSecondaryColor.withOpacity(0.2),
                       ),
+                      boxShadow: [ // Thêm boxShadow cho mỗi item
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: ListTile(
                       leading: Container(
@@ -744,7 +762,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                 );
               },
             ),
-
             // Content
             Expanded(
               child: AnimatedBuilder(
@@ -773,6 +790,13 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                   ),
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(color: statusColor.withOpacity(0.3)),
+                                  boxShadow: [ // Thêm boxShadow
+                                    BoxShadow(
+                                      color: statusColor.withOpacity(0.1),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                  ],
                                 ),
                                 child: Row(
                                   children: [
@@ -828,14 +852,16 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                   ],
                                 ),
                               ),
-
                               const SizedBox(height: 24),
-
                               // Main Info Card
                               Container(
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: currentSurfaceColor,
+                                  gradient: LinearGradient( // Thêm gradient
+                                    colors: [currentSurfaceColor, currentSurfaceColor.withOpacity(0.95)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
                                   borderRadius: BorderRadius.circular(24),
                                   boxShadow: [
                                     BoxShadow(
@@ -897,7 +923,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                           ),
                                         ),
                                       ),
-
                                     // Form Section
                                     Padding(
                                       padding: const EdgeInsets.all(24),
@@ -914,7 +939,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                             ),
                                           ),
                                           const SizedBox(height: 20),
-
                                           // Food Name
                                           _buildModernTextField(
                                             controller: _nameController,
@@ -923,7 +947,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                             onChanged: (value) => _nameDebouncer.value = value,
                                           ),
                                           const SizedBox(height: 20),
-
                                           // Quantity
                                           _buildModernTextField(
                                             controller: _quantityController,
@@ -942,14 +965,13 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                               if (int.tryParse(value) == null && value.isNotEmpty) {
                                                 _quantityController.text = '0';
                                                 _quantityController.selection = TextSelection.fromPosition(
-                                                  TextPosition(offset: 1),
+                                                  const TextPosition(offset: 1),
                                                 );
                                                 _showSnackBar('Vui lòng nhập số lượng hợp lệ', warningColor);
                                               }
                                             },
                                           ),
                                           const SizedBox(height: 20),
-
                                           // Area Selection
                                           _buildModernSelector(
                                             label: 'Khu vực',
@@ -958,7 +980,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                             onTap: () => _selectArea(context, _storageAreas),
                                           ),
                                           const SizedBox(height: 20),
-
                                           // Expiry Date
                                           _buildModernSelector(
                                             label: 'Ngày hết hạn',
@@ -969,7 +990,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                             onTap: () => _selectDate(context),
                                           ),
                                           const SizedBox(height: 20),
-
                                           // Storage Date Info
                                           _buildInfoRow(
                                             'Ngày tạo',
@@ -984,9 +1004,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                   ],
                                 ),
                               ),
-
                               const SizedBox(height: 32),
-
                               // Action Buttons
                               Row(
                                 children: [
@@ -1061,7 +1079,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                   ),
                                 ],
                               ),
-
                               const SizedBox(height: 32),
                             ],
                           ),
@@ -1088,9 +1105,19 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: currentBackgroundColor.withOpacity(0.3),
+        gradient: LinearGradient( // Thêm gradient
+          colors: [currentSurfaceColor, currentSurfaceColor.withOpacity(0.95)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: primaryColor.withOpacity(0.2)),
+        boxShadow: [ // Thêm boxShadow
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: TextField(
         controller: controller,
@@ -1135,9 +1162,19 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: currentBackgroundColor.withOpacity(0.3),
+          gradient: LinearGradient( // Thêm gradient
+            colors: [currentSurfaceColor, currentSurfaceColor.withOpacity(0.95)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: primaryColor.withOpacity(0.2)),
+          boxShadow: [ // Thêm boxShadow
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -1185,9 +1222,19 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: primaryColor.withOpacity(0.05),
+        gradient: LinearGradient( // Thêm gradient
+          colors: [currentSurfaceColor, currentSurfaceColor.withOpacity(0.95)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: primaryColor.withOpacity(0.1)),
+        boxShadow: [ // Thêm boxShadow
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
