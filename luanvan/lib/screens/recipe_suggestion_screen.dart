@@ -1077,9 +1077,6 @@ class _RecipeSuggestionScreenState extends State<RecipeSuggestionScreen>
                     ),
                   ),
                   const SizedBox(height: 20),
-                  if (recipe['nutrition']?.isNotEmpty ?? false)
-                    _buildNutritionSection(recipe['nutrition']),
-                  const SizedBox(height: 20),
                   if (recipe['ingredientsUsed']?.isNotEmpty ?? false)
                     _buildIngredientSection(
                       'Nguyên liệu có sẵn',

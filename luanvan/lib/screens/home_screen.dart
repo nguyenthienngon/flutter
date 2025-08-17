@@ -192,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isDarkMode = false;
   bool _isSearchVisible = false;
   String _searchQuery = '';
-  SortOption _selectedSort = SortOption.category;
+  SortOption _selectedSort = SortOption.expiryDate;
 
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -1814,22 +1814,42 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   List<Map<String, dynamic>> _filterStorageLogs(List<Map<String, dynamic>> logs) {
+    List<Map<String, dynamic>> filtered = List.from(logs);
+
+    // Sort trước khi filter
+    switch (_selectedSort) {
+      case SortOption.expiryDate:
+        filtered.sort((a, b) {
+          final dateA = a['expiryDate'] as DateTime? ?? DateTime(2100);
+          final dateB = b['expiryDate'] as DateTime? ?? DateTime(2100);
+          return dateA.compareTo(dateB); // Hết hạn sớm lên đầu
+        });
+        break;
+      case SortOption.category:
+        filtered.sort((a, b) {
+          final categoryA = a['category']?.toString().toLowerCase() ?? '';
+          final categoryB = b['category']?.toString().toLowerCase() ?? '';
+          return categoryA.compareTo(categoryB); // Sort theo category nếu cần
+        });
+        break;
+      default:
+        break;
+    }
+
+    // Filter sau sort
     final now = DateTime.now().toUtc().add(const Duration(hours: 7));
     switch (_selectedSort) {
       case SortOption.fresh:
-        return logs.where((log) => log['status'] == 'fresh').toList();
+        return filtered.where((log) => log['status'] == 'fresh').toList();
       case SortOption.expiring:
-        return logs.where((log) => log['status'] == 'expiring').toList();
+        return filtered.where((log) => log['status'] == 'expiring').toList();
       case SortOption.expired:
-        return logs.where((log) => log['status'] == 'expired').toList();
-      case SortOption.category:
-      case SortOption.expiryDate:
-      case SortOption.createdDate:
-      case SortOption.name:
+        return filtered.where((log) => log['status'] == 'expired').toList();
       default:
-        return logs;
+        return filtered;
     }
   }
+
 
   void _showErrorSnackBar(String message) {
     if (mounted) {

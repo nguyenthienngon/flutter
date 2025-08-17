@@ -679,7 +679,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     String statusText = 'Tươi';
     IconData statusIcon = Icons.check_circle_rounded;
 
-    if (daysLeft <= 0) {
+    if (daysLeft < 0) {
       statusColor = errorColor;
       statusText = 'Hết hạn';
       statusIcon = Icons.error_rounded;
