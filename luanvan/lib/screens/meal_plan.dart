@@ -671,10 +671,10 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
     await _executeWithLoading(
           () async {
         if (isFavorite) {
+          // For DELETE request, send userId as a query parameter
           final response = await _httpClient.delete(
-            Uri.parse('$_ngrokUrl/delete_favorite_recipe/$recipeId'),
+            Uri.parse('$_ngrokUrl/delete_favorite_recipe/$recipeId?userId=${widget.userId}'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'userId': widget.userId}),
           );
 
           if (response.statusCode == 200) {
@@ -689,6 +689,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
             throw Exception('Không thể xóa công thức yêu thích: ${response.statusCode}');
           }
         } else {
+          // For POST request, keep the existing logic as it is correct
           final meals = _mealPlan['week'];
           if (meals == null) throw Exception('Kế hoạch bữa ăn chưa được khởi tạo');
 
@@ -733,7 +734,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> with TickerProviderStat
       errorMessage: 'Không thể cập nhật trạng thái yêu thích.',
     );
   }
-
   void _updateMealPlanFavoriteStatus(String recipeId, bool isFavorite) {
     _mealPlan['week']?.values.forEach((dayMeals) {
       final recipeIndex = dayMeals.indexWhere((r) => r['id'].toString() == recipeId);

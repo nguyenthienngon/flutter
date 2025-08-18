@@ -54,7 +54,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
   final _formKey = GlobalKey<FormState>();
   String? _unitId;
   String? _selectedCategoryId;
-  DateTime _expiryDate = DateTime.now().add(const Duration(days: 7));
+  DateTime? _expiryDate; // Thay đổi thành nullable, không có giá trị mặc định
   String? _selectedAreaId;
   Map<String, dynamic>? _aiResult;
   bool _isLoading = true;
@@ -95,6 +95,254 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
   Color get currentSurfaceColor => widget.isDarkMode ? const Color(0xFF1E1E1E) : surfaceColor;
   Color get currentTextPrimaryColor => widget.isDarkMode ? const Color(0xFFE0E0E0) : textPrimaryColor;
   Color get currentTextSecondaryColor => widget.isDarkMode ? const Color(0xFFB0B0B0) : textSecondaryColor;
+
+  final Map<String, Map<String, dynamic>> _foodAutoFillMap = {
+    'táo': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'chuối': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'củ dền': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'ớt chuông': {
+      'category': 'Rau củ',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'bắp cải': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'cà rốt': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'súp lơ trắng': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'ớt cay': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.2,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'ngô': {
+      'category': 'Rau củ',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'dưa chuột': {
+      'category': 'Rau củ',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'cà tím': {
+      'category': 'Rau củ',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'tỏi': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.1,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'gừng': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.1,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'nho': {
+      'category': 'Trái cây',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'ớt jalapeño': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.2,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'kiwi': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'chanh': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'xà lách': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'xoài': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'hành tây': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'cam': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'ớt paprika': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.2,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'lê': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'đậu hà lan': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'dứa': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'lựu': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'khoai tây': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'củ cải đỏ': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'đậu nành': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'rau bina': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'ngô ngọt': {
+      'category': 'Rau củ',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 7,
+      'storageArea': 'Ngăn mát',
+    },
+    'khoai lang': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'cà chua': {
+      'category': 'Rau củ',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+    'củ cải trắng': {
+      'category': 'Rau củ',
+      'unit': 'kg',
+      'quantity': 0.5,
+      'expiryDays': 30,
+      'storageArea': 'Ngăn mát',
+    },
+    'dưa hấu': {
+      'category': 'Trái cây',
+      'unit': 'quả',
+      'quantity': 1.0,
+      'expiryDays': 14,
+      'storageArea': 'Ngăn mát',
+    },
+  };
 
   @override
   void initState() {
@@ -275,7 +523,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
     }
   }
 
-  Future<Map<String, dynamic>> _runInference(Uint8List imageBytes) async {
+  Future<Map<String, dynamic>?> _runInference(Uint8List imageBytes) async {
     if (!_modelLoaded || _interpreter == null) {
       _logger.e('Mô hình TFLite chưa được tải');
       throw Exception('Mô hình TFLite chưa được tải');
@@ -283,26 +531,35 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
 
     try {
       _logger.i('Bắt đầu suy luận với dữ liệu ảnh');
+
+      // Lấy thông tin tensor đầu vào và đầu ra
       final inputTensor = _interpreter!.getInputTensor(0);
       final outputTensor = _interpreter!.getOutputTensor(0);
 
+      // Kiểm tra hình dạng tensor
       final expectedInputShape = [1, 224, 224, 3];
       final inputShape = inputTensor.shape;
       if (!const ListEquality().equals(inputShape, expectedInputShape)) {
+        _logger.e('Hình dạng đầu vào không đúng: $inputShape, kỳ vọng: $expectedInputShape');
         throw Exception('Hình dạng đầu vào không đúng: $inputShape, kỳ vọng: $expectedInputShape');
       }
       _logger.i('Hình dạng đầu vào tensor: $inputShape');
 
+      // Giải mã ảnh từ dữ liệu bytes
       imageLib.Image? image = imageLib.decodeImage(imageBytes);
       if (image == null) {
+        _logger.e('Không thể giải mã ảnh từ dữ liệu bytes');
         throw Exception('Không thể giải mã ảnh từ dữ liệu bytes');
       }
 
+      // Resize ảnh về kích thước 224x224
       image = imageLib.copyResize(image, width: 224, height: 224);
       if (image.width != 224 || image.height != 224) {
+        _logger.e('Kích thước ảnh sau resize không đúng: ${image.width}x${image.height}');
         throw Exception('Kích thước ảnh sau resize không đúng: ${image.width}x${image.height}');
       }
 
+      // Kiểm tra và chuyển đổi ảnh sang RGB nếu cần
       if (image.numChannels != 3) {
         _logger.w('Ảnh không phải RGB (numChannels: ${image.numChannels}), chuyển đổi sang RGB');
         final rgbImage = imageLib.Image(width: image.width, height: image.height, numChannels: 3);
@@ -318,21 +575,27 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
         image = rgbImage;
       }
 
+      // Chuẩn bị dữ liệu đầu vào cho mô hình
       final input = Float32List(1 * 224 * 224 * 3);
       int pixelIndex = 0;
       for (int y = 0; y < 224; y++) {
         for (int x = 0; x < 224; x++) {
           final pixel = image.getPixel(x, y);
-          input[pixelIndex++] = pixel.r / 255.0;
-          input[pixelIndex++] = pixel.g / 255.0;
-          input[pixelIndex++] = pixel.b / 255.0;
+          input[pixelIndex++] = pixel.r / 255.0; // Chuẩn hóa giá trị R
+          input[pixelIndex++] = pixel.g / 255.0; // Chuẩn hóa giá trị G
+          input[pixelIndex++] = pixel.b / 255.0; // Chuẩn hóa giá trị B
         }
       }
       final inputTensorData = input.reshape([1, 224, 224, 3]);
 
+      // Chuẩn bị buffer đầu ra
       final output = Float32List(1 * 36).reshape([1, 36]);
-      _interpreter!.run(inputTensorData, output);
 
+      // Chạy suy luận
+      _interpreter!.run(inputTensorData, output);
+      _logger.i('Đã chạy suy luận thành công');
+
+      // Xử lý đầu ra
       final outputList = output[0].cast<double>();
       if (outputList.isEmpty) {
         _logger.e('Danh sách đầu ra rỗng');
@@ -343,10 +606,23 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
         throw Exception('Đầu ra chứa giá trị không hợp lệ');
       }
 
+      // Tìm nhãn có độ tin cậy cao nhất
       final maxScore = outputList.reduce((double a, double b) => a > b ? a : b);
       final maxIndex = outputList.indexWhere((value) => value == maxScore);
       final predictedLabel = _labels![maxIndex];
       final confidence = maxScore * 100;
+
+      // Kiểm tra ngưỡng độ tin cậy 80%
+      if (confidence < 80.0) {
+        _logger.i('Độ tin cậy ($confidence%) dưới 80%, trả về kết quả "Không rõ"');
+        return {
+          'label': 'Không rõ',
+          'original_label': predictedLabel,
+          'confidence': confidence,
+        };
+      }
+
+      // Dịch nhãn sang tiếng Việt
       final translatedLabel = _translateToVietnamese(predictedLabel);
       _logger.i('Dự đoán: "$predictedLabel" -> Dịch: "$translatedLabel" với độ tin cậy: $confidence%');
 
@@ -561,14 +837,15 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
 
         final areas = List<Map<String, dynamic>>.from(data['areas']);
         setState(() {
-          _storageAreas = areas.map((area) {
-            return {
-              'id': area['id'] ?? '',
-              'name': area['name'] ?? 'Unknown Area',
-              'fridgeId': area['fridgeId'] ?? widget.fridgeId,
-            };
-          }).toList();
-          _selectedAreaId = _storageAreas.isNotEmpty ? _storageAreas[0]['id'] : null;
+          _storageAreas = areas
+              .map((area) => {
+            'id': area['id'] ?? '',
+            'name': area['name'] ?? 'Unknown Area',
+            'fridgeId': area['fridgeId'] ?? widget.fridgeId,
+          })
+              .where((area) => area['fridgeId'] == widget.fridgeId) // Lọc theo fridgeId
+              .toList();
+          _selectedAreaId = null;
           _errorMessage = _storageAreas.isEmpty ? 'Không tìm thấy khu vực lưu trữ. Vui lòng thêm khu vực lưu trữ.' : null;
         });
 
@@ -601,7 +878,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
         _units = snapshot.docs
             .map((doc) => {...doc.data(), 'id': doc.id})
             .toList();
-        _unitId ??= _units.isNotEmpty ? _units[0]['id'] : null;
+        _unitId = null; // Không chọn mặc định
       });
       _logger.i('Đã tải ${_units.length} đơn vị: ${_units.map((e) => e['name']).join(", ")}');
     } catch (e, stackTrace) {
@@ -620,7 +897,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
         _foodCategories = snapshot.docs
             .map((doc) => {...doc.data(), 'id': doc.id})
             .toList();
-        _selectedCategoryId ??= _foodCategories.isNotEmpty ? _foodCategories[0]['id'] : null;
+        _selectedCategoryId = null; // Không chọn mặc định
       });
       _logger.i('Đã tải ${_foodCategories.length} danh mục thực phẩm: ${_foodCategories.map((e) => e['name']).join(", ")}');
     } catch (e, stackTrace) {
@@ -646,13 +923,19 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
           _image = File(pickedFile.path);
           _imagePath = pickedFile.path;
           _aiResult = null;
+          _nameController.clear();
         });
         _logger.i('Đã chọn ảnh từ thư viện: ${pickedFile.path}');
         final result = await _runInference(imageBytes);
         if (mounted && result != null) {
           setState(() {
             _aiResult = result;
-            _nameController.text = result['label'];
+            if (result['label'] != 'Không rõ') {
+              _nameController.text = result['label'];
+              _autoFillFormFields(result['label'].toLowerCase());
+            } else {
+              _nameController.clear();
+            }
             _logger.i('Cập nhật _nameController.text: "${_nameController.text}"');
           });
           _logger.i('Kết quả nhận diện AI: ${result['label']} (${result['confidence'].toStringAsFixed(1)}%), Nhãn gốc: ${result['original_label']}');
@@ -738,13 +1021,19 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
                 _imagePath = selectedFile['webContentLink'];
                 _image = null;
                 _aiResult = null;
+                _nameController.clear();
               });
               _logger.i('Đã tải dữ liệu ảnh từ Google Drive');
               final result = await _runInference(imageBytes);
               if (mounted && result != null) {
                 setState(() {
                   _aiResult = result;
-                  _nameController.text = result['label'];
+                  if (result['label'] != 'Không rõ') {
+                    _nameController.text = result['label'];
+                    _autoFillFormFields(result['label'].toLowerCase());
+                  } else {
+                    _nameController.clear();
+                  }
                   _logger.i('Cập nhật _nameController.text: "${_nameController.text}"');
                 });
                 _logger.i('Kết quả nhận diện AI từ ảnh Google Drive: ${result['label']} (${result['confidence'].toStringAsFixed(1)}%), Nhãn gốc: ${result['original_label']}');
@@ -765,7 +1054,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
   }
 
   Future<void> _setFilePermissions(String fileId, String accessToken) async {
-    _logger.i('Đang thiết lập quyền cho file Google Drive: $fileId');
+    _logger.i('Bắt đầu thiết lập quyền truy cập cho file Google Drive: $fileId');
     try {
       final response = await http.post(
         Uri.parse('https://www.googleapis.com/drive/v3/files/$fileId/permissions'),
@@ -773,15 +1062,21 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
           'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({'type': 'anyone', 'role': 'reader'}),
+        body: jsonEncode({
+          'role': 'reader',
+          'type': 'anyone',
+        }),
       );
-      if (response.statusCode != 200) {
-        _logger.w('Lỗi khi thiết lập quyền cho file Google Drive: HTTP ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        _logger.i('Đã thiết lập quyền truy cập thành công cho file: $fileId');
       } else {
-        _logger.i('Đã thiết lập quyền cho file Google Drive: $fileId');
+        _logger.e('Lỗi khi thiết lập quyền truy cập: HTTP ${response.statusCode}, body: ${response.body}');
+        throw Exception('Không thể thiết lập quyền truy cập cho file: HTTP ${response.statusCode}');
       }
     } catch (e, stackTrace) {
-      _logger.e('Lỗi khi thiết lập quyền cho file Google Drive: $e', stackTrace: stackTrace);
+      _logger.e('Lỗi khi thiết lập quyền truy cập: $e', stackTrace: stackTrace);
+      throw Exception('Lỗi khi thiết lập quyền truy cập: $e');
     }
   }
 
@@ -800,13 +1095,19 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
           _image = File(pickedFile.path);
           _imagePath = pickedFile.path;
           _aiResult = null;
+          _nameController.clear();
         });
         _logger.i('Đã chụp ảnh: ${pickedFile.path}');
         final result = await _runInference(imageBytes);
         if (mounted && result != null) {
           setState(() {
             _aiResult = result;
-            _nameController.text = result['label'];
+            if (result['label'] != 'Không rõ') {
+              _nameController.text = result['label'];
+              _autoFillFormFields(result['label'].toLowerCase());
+            } else {
+              _nameController.clear();
+            }
             _logger.i('Cập nhật _nameController.text: "${_nameController.text}"');
           });
           _logger.i('Kết quả nhận diện AI từ ảnh chụp: ${result['label']} (${result['confidence'].toStringAsFixed(1)}%), Nhãn gốc: ${result['original_label']}');
@@ -818,6 +1119,140 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
       _logger.e('Lỗi khi chụp ảnh: $e', stackTrace: stackTrace);
       _showErrorSnackBar('Lỗi khi chụp ảnh: $e');
     }
+  }
+
+  Future<void> _autoFillFormFields(String label) async {
+    if (!_foodAutoFillMap.containsKey(label.toLowerCase())) {
+      _logger.w('Không tìm thấy thông tin tự động điền cho nhãn: $label');
+      return;
+    }
+
+    final foodInfo = _foodAutoFillMap[label.toLowerCase()]!;
+    _logger.i('Tự động điền các trường cho thực phẩm: $label');
+
+    // Tự động điền số lượng
+    setState(() {
+      _quantityController.text = foodInfo['quantity'].toString();
+    });
+    _logger.i('Đã điền số lượng: ${foodInfo['quantity']}');
+
+    // Tự động điền ngày hết hạn
+    setState(() {
+      _expiryDate = DateTime.now().add(Duration(days: foodInfo['expiryDays']));
+    });
+    _logger.i('Đã điền ngày hết hạn: ${DateFormat('dd/MM/yyyy').format(_expiryDate!)}');
+
+    // Tự động điền đơn vị
+    String? unitId;
+    final unitName = foodInfo['unit'];
+    final existingUnit = _units.firstWhereOrNull((unit) => unit['name'].toLowerCase() == unitName.toLowerCase());
+    if (existingUnit != null) {
+      unitId = existingUnit['id'];
+      _logger.i('Tìm thấy đơn vị hiện có: $unitName (ID: $unitId)');
+    } else {
+      _logger.i('Đơn vị "$unitName" không tồn tại, tạo mới...');
+      try {
+        final response = await http.post(
+          Uri.parse('${Config.getNgrokUrl()}/add_unit'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'name': unitName}),
+        );
+        final data = jsonDecode(response.body);
+        if (response.statusCode == 200 && data['success']) {
+          unitId = data['unitId'];
+          await _fetchUnits();
+          _logger.i('Đã tạo đơn vị mới: $unitName (ID: $unitId)');
+        } else {
+          _logger.e('Lỗi khi tạo đơn vị mới: ${data['error']}');
+          _showErrorSnackBar('Lỗi khi tạo đơn vị: ${data['error']}');
+          return;
+        }
+      } catch (e, stackTrace) {
+        _logger.e('Lỗi khi tạo đơn vị: $e', stackTrace: stackTrace);
+        _showErrorSnackBar('Lỗi khi tạo đơn vị: $e');
+        return;
+      }
+    }
+    setState(() {
+      _unitId = unitId;
+    });
+    _logger.i('Đã chọn đơn vị: $unitId');
+
+    // Tự động điền danh mục
+    String? categoryId;
+    final categoryName = foodInfo['category'];
+    final existingCategory = _foodCategories.firstWhereOrNull((category) => category['name'].toLowerCase() == categoryName.toLowerCase());
+    if (existingCategory != null) {
+      categoryId = existingCategory['id'];
+      _logger.i('Tìm thấy danh mục hiện có: $categoryName (ID: $categoryId)');
+    } else {
+      _logger.i('Danh mục "$categoryName" không tồn tại, tạo mới...');
+      try {
+        final response = await http.post(
+          Uri.parse('${Config.getNgrokUrl()}/add_food_category'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'name': categoryName, 'urlImage': ''}),
+        );
+        final data = jsonDecode(response.body);
+        if (response.statusCode == 200 && data['success']) {
+          categoryId = data['categoryId'];
+          await _fetchFoodCategories();
+          _logger.i('Đã tạo danh mục mới: $categoryName (ID: $categoryId)');
+        } else {
+          _logger.e('Lỗi khi tạo danh mục mới: ${data['error']}');
+          _showErrorSnackBar('Lỗi khi tạo danh mục: ${data['error']}');
+          return;
+        }
+      } catch (e, stackTrace) {
+        _logger.e('Lỗi khi tạo danh mục: $e', stackTrace: stackTrace);
+        _showErrorSnackBar('Lỗi khi tạo danh mục: $e');
+        return;
+      }
+    }
+    setState(() {
+      _selectedCategoryId = categoryId;
+    });
+    _logger.i('Đã chọn danh mục: $categoryId');
+
+    // Tự động điền khu vực lưu trữ
+    String? areaId;
+    final areaName = foodInfo['storageArea'];
+    final existingArea = _storageAreas.firstWhereOrNull((area) => area['name'].toLowerCase() == areaName.toLowerCase());
+    if (existingArea != null) {
+      areaId = existingArea['id'];
+      _logger.i('Tìm thấy khu vực lưu trữ hiện có: $areaName (ID: $areaId)');
+    } else {
+      _logger.i('Khu vực lưu trữ "$areaName" không tồn tại, tạo mới...');
+      try {
+        final response = await http.post(
+          Uri.parse('${Config.getNgrokUrl()}/add_area'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'name': areaName,
+            'fridgeId': widget.fridgeId,
+            'userId': widget.uid,
+          }),
+        );
+        final data = jsonDecode(response.body);
+        if (response.statusCode == 200) {
+          areaId = data['areaId'];
+          await _fetchStorageAreas();
+          _logger.i('Đã tạo khu vực lưu trữ mới: $areaName (ID: $areaId)');
+        } else {
+          _logger.e('Lỗi khi tạo khu vực lưu trữ mới: ${data['error']}');
+          _showErrorSnackBar('Lỗi khi tạo khu vực lưu trữ: ${data['error']}');
+          return;
+        }
+      } catch (e, stackTrace) {
+        _logger.e('Lỗi khi tạo khu vực lưu trữ: $e', stackTrace: stackTrace);
+        _showErrorSnackBar('Lỗi khi tạo khu vực lưu trữ: $e');
+        return;
+      }
+    }
+    setState(() {
+      _selectedAreaId = areaId;
+    });
+    _logger.i('Đã chọn khu vực lưu trữ: $areaId');
   }
 
   Future<String?> _uploadToGoogleDrive(String filePath) async {
@@ -876,9 +1311,9 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
       return;
     }
 
-    if (_selectedAreaId == null || _selectedCategoryId == null || _unitId == null) {
-      _logger.w('Vui lòng chọn khu vực, danh mục và đơn vị');
-      if (mounted) _showErrorSnackBar('Vui lòng chọn khu vực, danh mục và đơn vị.');
+    if (_selectedAreaId == null || _selectedCategoryId == null || _unitId == null || _expiryDate == null) {
+      _logger.w('Vui lòng chọn khu vực, danh mục, đơn vị và ngày hết hạn');
+      if (mounted) _showErrorSnackBar('Vui lòng chọn khu vực, danh mục, đơn vị và ngày hết hạn.');
       return;
     }
 
@@ -920,7 +1355,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
         throw Exception('Không nhận được foodId');
       }
 
-      final expiryDateString = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'+07:00'").format(_expiryDate);
+      final expiryDateString = DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'+07:00'").format(_expiryDate!);
 
       final storageResponse = await http.post(
         Uri.parse('${Config.getNgrokUrl()}/add_storage_log'),
@@ -1106,7 +1541,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
           children: [
             Icon(Icons.add_circle_outline, color: primaryColor),
             const SizedBox(width: 8),
-            const Text('Thêm đơn vị mới'),
+            const Text('Thêm'),
           ],
         ),
         content: TextField(
@@ -1334,976 +1769,768 @@ class _AddFoodScreenState extends State<AddFoodScreen> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: currentBackgroundColor,
-      body: _isLoading
-          ? Container(
-        color: currentBackgroundColor,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: currentSurfaceColor,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: LoadingAnimationWidget.threeArchedCircle(
-                  color: primaryColor,
-                  size: 60,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Đang tải dữ liệu...',
-                style: TextStyle(
-                  color: currentTextPrimaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      )
-          : SafeArea(
-        child: Column(
-          children: [
-            SlideTransition(
-              position: _headerSlideAnimation,
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [primaryColor, accentColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primaryColor.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: -40,
-                      right: -40,
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -40,
-                      left: -20,
-                      child: Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                            padding: const EdgeInsets.all(8),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Thêm Thực Phẩm',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        const SizedBox(width: 48), // Placeholder for alignment
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildImageSection(),
-                        const SizedBox(height: 20),
-                        _buildFormSection(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImageSection() {
-    return Container(
-      decoration: BoxDecoration(
-        color: currentSurfaceColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            height: 200,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              color: currentBackgroundColor.withOpacity(0.1),
-            ),
-            child: _image != null
-                ? Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  child: Image.file(
-                    _image!,
-                    width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Center(child: Icon(Icons.error, color: errorColor, size: 40)),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
-                      onPressed: () {
-                        setState(() {
-                          _image = null;
-                          _imagePath = null;
-                          _aiResult = null;
-                          _nameController.clear();
-                        });
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            )
-                : _imagePath != null
-                ? Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  child: Image.network(
-                    _imagePath!,
-                    width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                              : null,
-                          color: primaryColor,
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) =>
-                        Center(child: Icon(Icons.error, color: errorColor, size: 40)),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
-                      onPressed: () {
-                        setState(() {
-                          _image = null;
-                          _imagePath = null;
-                          _aiResult = null;
-                          _nameController.clear();
-                        });
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            )
-                : Column(
+        backgroundColor: currentBackgroundColor,
+        body: _isLoading
+            ? Container(
+          color: currentBackgroundColor,
+          child: Center(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [primaryColor.withOpacity(0.1), accentColor.withOpacity(0.1)],
-                    ),
+                    color: currentSurfaceColor,
                     borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                  child: Icon(
-                    Icons.add_photo_alternate_rounded,
-                    size: 40,
+                  child: LoadingAnimationWidget.threeArchedCircle(
                     color: primaryColor,
+                    size: 60,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 Text(
-                  'Thêm ảnh thực phẩm',
+                  'Đang tải dữ liệu...',
                   style: TextStyle(
+                    color: currentTextPrimaryColor,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: currentTextPrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'AI sẽ tự động nhận diện thực phẩm',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: currentTextSecondaryColor,
                   ),
                 ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                if (_image == null && _imagePath == null)
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [primaryColor, accentColor],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryColor.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: TextButton.icon(
-                      onPressed: _isLoading ? null : _showImageSourceDialog,
-                      icon: const Icon(Icons.add_a_photo_rounded, color: Colors.white),
-                      label: const Text(
-                        'Chọn ảnh',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_aiResult != null)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    margin: const EdgeInsets.only(top: 16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [successColor.withOpacity(0.1), successColor.withOpacity(0.05)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: successColor.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: successColor.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(Icons.smart_toy_rounded, color: successColor, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'AI nhận diện',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: successColor,
-                                ),
-                              ),
-                              Text(
-                                '${_aiResult!['label']} (${_aiResult!['confidence'].toStringAsFixed(1)}%)',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: currentTextPrimaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormSection() {
-    return Container(
-      decoration: BoxDecoration(
-        color: currentSurfaceColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: _storageAreas.isEmpty || _units.isEmpty || _foodCategories.isEmpty
-          ? Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        )
+            : SafeArea(
+        child: Column(
         children: [
-          Icon(Icons.warning_rounded, color: warningColor, size: 40),
-          const SizedBox(height: 16),
-          Text(
-            _storageAreas.isEmpty
-                ? 'Không có khu vực lưu trữ. Vui lòng thêm khu vực lưu trữ trong tủ lạnh.'
-                : _units.isEmpty
-                ? 'Không có đơn vị. Vui lòng thêm đơn vị.'
-                : 'Không có danh mục thực phẩm. Vui lòng thêm danh mục.',
-            style: TextStyle(
-              fontSize: 16,
-              color: currentTextPrimaryColor,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
+        SlideTransition(
+        position: _headerSlideAnimation,
+        child: Container(
+        margin: const EdgeInsets.all(16),
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+    decoration: BoxDecoration(
+    gradient: LinearGradient(
+    colors: [primaryColor, accentColor],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    ),
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+    BoxShadow(
+    color: primaryColor.withOpacity(0.3),
+    blurRadius: 8,
+    offset: const Offset(0, 4),
+    ),
+    ],
+    ),
+    child: Stack(
+    children: [
+    Positioned(
+    top: -40,
+    right: -40,
+    child: Container(
+      width: 100,
+      height: 100,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+    ),
+    ),
+      Row(
+        children: [
+          IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: Colors.white),
             onPressed: () {
-              if (_storageAreas.isEmpty) {
-                _showAddAreaDialog();
-              } else if (_units.isEmpty) {
-                _showAddUnitDialog();
-              } else {
-                _showAddCategoryDialog();
-              }
+              _logger.i('Người dùng nhấn nút quay lại');
+              Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
             child: Text(
-              _storageAreas.isEmpty
-                  ? 'Thêm khu vực lưu trữ'
-                  : _units.isEmpty
-                  ? 'Thêm đơn vị'
-                  : 'Thêm danh mục thực phẩm',
-              style: const TextStyle(
+              'Thêm thực phẩm mới',
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
         ],
-      )
-          : Column(
+      ),
+    ],
+    ),
+        ),
+        ),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildImageSection(),
+                      SizedBox(height: 24),
+                      _buildFormSection(),
+                      SizedBox(height: 24),
+                      _buildSaveButton(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+        ),
+        ),
+    );
+  }
+
+  Widget _buildImageSection() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: currentSurfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Thông tin thực phẩm',
+            'Hình ảnh thực phẩm',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: currentTextPrimaryColor,
             ),
           ),
-          const SizedBox(height: 20),
-          _buildModernTextField(
-            label: 'Tên thực phẩm',
-            hint: 'Nhập tên thực phẩm',
-            icon: Icons.fastfood_rounded,
-            controller: _nameController,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Vui lòng nhập tên thực phẩm';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          Row(
+          SizedBox(height: 12),
+          _image == null && _imagePath == null
+              ? _buildImagePlaceholder()
+              : Stack(
             children: [
-              Expanded(
-                flex: 2,
-                child: _buildModernTextField(
-                  label: 'Số lượng',
-                  hint: 'Nhập số lượng',
-                  icon: Icons.numbers_rounded,
-                  controller: _quantityController,
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Vui lòng nhập số lượng';
-                    }
-                    try {
-                      final number = double.parse(value.trim());
-                      if (number <= 0) {
-                        return 'Số lượng phải lớn hơn 0';
-                      }
-                    } catch (e) {
-                      return 'Vui lòng nhập số hợp lệ';
-                    }
-                    return null;
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: _image != null
+                    ? Image.file(
+                  _image!,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                )
+                    : Image.network(
+                  _imagePath!,
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                            (loadingProgress.expectedTotalBytes ?? 1)
+                            : null,
+                        color: primaryColor,
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    _logger.e('Lỗi khi tải ảnh từ URL: $error');
+                    return _buildImagePlaceholder();
                   },
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 3,
-                child: _buildModernDropdown<String>(
-                  label: 'Đơn vị',
-                  icon: Icons.scale_rounded,
-                  value: _unitId,
-                  items: [
-                    ..._units.map((unit) => DropdownMenuItem<String>(
-                      value: unit['id'],
-                      child: Text(
-                        unit['name'],
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: currentSurfaceColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
                       ),
-                    )),
-                    DropdownMenuItem<String>(
-                      value: 'add_new',
-                      child: Row(
-                        children: [
-                          Icon(Icons.add_circle_outline, color: primaryColor, size: 20),
-                          const SizedBox(width: 8),
-                          const Text('Thêm đơn vị mới'),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value == 'add_new') {
-                      _showAddUnitDialog();
-                    } else {
-                      setState(() {
-                        _unitId = value;
-                      });
-                      _logger.i('Đã chọn đơn vị: $value');
-                    }
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty || value == 'add_new') {
-                      return 'Vui lòng chọn đơn vị';
-                    }
-                    return null;
-                  },
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.edit_rounded, color: primaryColor),
+                    onPressed: _showImageSourceDialog,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _buildModernDropdown<String>(
-            label: 'Danh mục',
-            icon: Icons.category_rounded,
-            value: _selectedCategoryId,
-            items: [
-              ..._foodCategories.map((category) => DropdownMenuItem<String>(
-                value: category['id'],
-                child: Text(
-                  category['name'],
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-              )),
-              DropdownMenuItem<String>(
-                value: 'add_new',
-                child: Row(
-                  children: [
-                    Icon(Icons.add_circle_outline, color: primaryColor, size: 20),
-                    const SizedBox(width: 8),
-                    const Text('Thêm danh mục mới'),
-                  ],
-                ),
+          if (_aiResult != null && _aiResult!['label'] != 'Không rõ') ...[
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: successColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: successColor.withOpacity(0.3)),
               ),
-            ],
-            onChanged: (value) {
-              if (value == 'add_new') {
-                _showAddCategoryDialog();
-              } else {
-                setState(() {
-                  _selectedCategoryId = value;
-                });
-                _logger.i('Đã chọn danh mục: $value');
-              }
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty || value == 'add_new') {
-                return 'Vui lòng chọn danh mục';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildDateSelector(),
-          const SizedBox(height: 16),
-          _buildModernDropdown<String>(
-            label: 'Khu vực lưu trữ',
-            icon: Icons.kitchen_rounded,
-            value: _selectedAreaId,
-            items: _storageAreas.map((area) => DropdownMenuItem<String>(
-              value: area['id'],
               child: Text(
-                area['name'],
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+                'Nhận diện AI: ${_aiResult!['label']} (${_aiResult!['confidence'].toStringAsFixed(1)}%)',
+                style: TextStyle(
+                  color: successColor,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            )).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedAreaId = value;
-              });
-              _logger.i('Đã chọn khu vực lưu trữ: $value');
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Vui lòng chọn khu vực lưu trữ';
-              }
-              return null;
-            },
-          ),
-          _buildSaveButton(),
-        ],
-      ),
-    );
-  }
-  Future<void> _showAddAreaDialog() async {
-    _logger.i('Mở dialog thêm khu vực lưu trữ mới');
-    final controller = TextEditingController();
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.add_location_alt_rounded, color: primaryColor),
-            const SizedBox(width: 8),
-            const Text('Thêm khu vực mới'),
+            ),
+          ] else if (_aiResult != null && _aiResult!['label'] == 'Không rõ') ...[
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: warningColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: warningColor.withOpacity(0.3)),
+              ),
+              child: Text(
+                'Không thể nhận diện thực phẩm. Vui lòng nhập thông tin thủ công.',
+                style: TextStyle(
+                  color: warningColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ],
-        ),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: 'Nhập tên khu vực (VD: Ngăn đông, Ngăn mát)',
-            hintStyle: TextStyle(color: currentTextSecondaryColor),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: primaryColor, width: 2),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              _logger.i('Người dùng hủy thêm khu vực lưu trữ');
-              Navigator.of(context).pop();
-            },
-            child: Text(
-              'Hủy',
-              style: TextStyle(color: currentTextSecondaryColor),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = controller.text.trim();
-              if (name.isEmpty) {
-                _logger.w('Vui lòng nhập tên khu vực lưu trữ');
-                _showErrorSnackBar('Vui lòng nhập tên khu vực lưu trữ');
-                return;
-              }
-              try {
-                _logger.i('Đang thêm khu vực lưu trữ: $name');
-                final response = await http.post(
-                  Uri.parse('${Config.getNgrokUrl()}/add_area'),
-                  headers: {'Content-Type': 'application/json'},
-                  body: jsonEncode({
-                    'name': name,
-                    'fridgeId': widget.fridgeId,
-                    'userId': widget.uid,
-                  }),
-                );
-                final data = jsonDecode(response.body);
-                if (response.statusCode == 200) {
-                  _logger.i('Đã thêm khu vực lưu trữ thành công: $name');
-                  await _fetchStorageAreas();
-                  _showSuccessSnackBar('Đã thêm khu vực lưu trữ thành công!');
-                  Navigator.of(context).pop();
-                } else {
-                  _logger.e('Lỗi khi thêm khu vực lưu trữ: ${data['error'] ?? 'Không xác định'}');
-                  _showErrorSnackBar('Lỗi khi thêm khu vực lưu trữ: ${data['error'] ?? 'Không xác định'}');
-                }
-              } catch (e, stackTrace) {
-                _logger.e('Lỗi khi thêm khu vực lưu trữ: $e', stackTrace: stackTrace);
-                _showErrorSnackBar('Lỗi khi thêm khu vực lưu trữ: $e');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: const Text(
-              'Lưu',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildDateSelector() {
-    return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-        Text(
-        'Ngày hết hạn',
-        style: TextStyle(        fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: currentTextPrimaryColor,
+  Widget _buildImagePlaceholder() {
+    return GestureDetector(
+      onTap: _showImageSourceDialog,
+      child: Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: currentTextSecondaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: currentTextSecondaryColor.withOpacity(0.3),
+            width: 2,
+            style: BorderStyle.solid,
+          ),
         ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.add_a_photo_rounded,
+              size: 48,
+              color: currentTextSecondaryColor,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Thêm hình ảnh',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: currentTextSecondaryColor,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Chụp ảnh, chọn từ thư viện hoặc Google Drive',
+              style: TextStyle(
+                fontSize: 12,
+                color: currentTextSecondaryColor.withOpacity(0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-          const SizedBox(height: 8),
-          InkWell(
-            onTap: _selectExpiryDate,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                border: Border.all(color: currentTextSecondaryColor.withOpacity(0.3)),
-                borderRadius: BorderRadius.circular(12),
-                color: currentSurfaceColor,
+      ),
+    );
+  }
+
+  Widget _buildFormSection() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: currentSurfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Thông tin thực phẩm',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: currentTextPrimaryColor,
+              ),
+            ),
+            SizedBox(height: 16),
+            TextFormField(
+              controller: _nameController,
+              decoration: InputDecoration(
+                labelText: 'Tên thực phẩm',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: primaryColor, width: 2),
+                ),
+                prefixIcon: Icon(Icons.fastfood_rounded, color: currentTextSecondaryColor),
+              ),
+              style: TextStyle(color: currentTextPrimaryColor),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  _logger.w('Tên thực phẩm không được để trống');
+                  return 'Vui lòng nhập tên thực phẩm';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 16),
+            // Wrap Row with ConstrainedBox to provide bounded width
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width - 32, // Giới hạn chiều rộng tối đa
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today_rounded, color: primaryColor, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    DateFormat('dd/MM/yyyy').format(_expiryDate),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: currentTextPrimaryColor,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _quantityController,
+                      decoration: InputDecoration(
+                        labelText: 'Số lượng',
+                        filled: true, // Thêm màu nền
+                        fillColor: currentSurfaceColor.withOpacity(0.8), // Màu nền nhẹ
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: currentTextSecondaryColor.withOpacity(0.5)), // Viền nhẹ
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: primaryColor, width: 2), // Viền nổi bật khi focus
+                        ),
+                        prefixIcon: Icon(Icons.numbers_rounded, color: accentColor), // Màu icon nổi bật
+                        labelStyle: TextStyle(color: currentTextSecondaryColor.withOpacity(0.7)), // Màu nhãn nhẹ
+                        hintStyle: TextStyle(color: currentTextSecondaryColor.withOpacity(0.5)), // Màu gợi ý
+                      ),
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      style: TextStyle(color: currentTextPrimaryColor, fontWeight: FontWeight.w500), // Text đậm hơn
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          _logger.w('Số lượng không được để trống');
+                          return 'Vui lòng nhập số lượng';
+                        }
+                        final number = double.tryParse(value);
+                        if (number == null || number <= 0) {
+                          _logger.w('Số lượng không hợp lệ: $value');
+                          return 'Số lượng phải là số dương';
+                        }
+                        return null;
+                      },
                     ),
                   ),
-                  const Spacer(),
-                  Icon(Icons.arrow_drop_down, color: currentTextSecondaryColor),
+                  SizedBox(width: 16), // Giữ khoảng cách 16 pixels
+                  Expanded(
+                    flex: 3,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: (MediaQuery.of(context).size.width - 40) * 0.6, // Giới hạn tối đa 60% chiều rộng màn hình trừ padding
+                      ),
+                      child: DropdownButtonFormField2<String>(
+                        value: _unitId,
+                        decoration: InputDecoration(
+                          labelText: 'Đơn vị',
+                          filled: true, // Thêm màu nền
+                          fillColor: currentSurfaceColor.withOpacity(0.8), // Màu nền nhẹ
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: currentTextSecondaryColor.withOpacity(0.5)), // Viền nhẹ
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: primaryColor, width: 2), // Viền nổi bật khi focus
+                          ),
+                          labelStyle: TextStyle(color: currentTextSecondaryColor.withOpacity(0.7)), // Màu nhãn nhẹ
+                          hintStyle: TextStyle(color: currentTextSecondaryColor.withOpacity(0.5)), // Màu gợi ý
+                        ),
+                        items: [
+                          ..._units.map((unit) => DropdownMenuItem<String>(
+                            value: unit['id'],
+                            child: Container(
+                              constraints: BoxConstraints(maxWidth: 120),
+                              child: Text(
+                                unit['name'],
+                                style: TextStyle(
+                                  color: currentTextPrimaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500, // Text đậm hơn
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )),
+                          DropdownMenuItem<String>(
+                            value: 'add_new',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add_circle_outline, color: accentColor, size: 20), // Màu icon nổi bật
+                                SizedBox(width: 4),
+                                Container(
+                                  constraints: BoxConstraints(maxWidth: 120),
+                                  child: Text(
+                                    'Thêm mới',
+                                    style: TextStyle(
+                                      color: accentColor, // Màu nổi bật cho "Thêm mới"
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600, // Đậm hơn để nổi bật
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (value) async {
+                          if (value == 'add_new') {
+                            await _showAddUnitDialog();
+                          } else {
+                            setState(() {
+                              _unitId = value;
+                            });
+                            _logger.i('Đã chọn đơn vị: $value');
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null) {
+                            _logger.w('Đơn vị không được để trống');
+                            return 'Vui lòng chọn đơn vị';
+                          }
+                          return null;
+                        },
+                        buttonStyleData: ButtonStyleData(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: currentSurfaceColor, // Màu nền dropdown
+                          ),
+                        ),
+                        iconStyleData: IconStyleData(
+                          icon: Icon(Icons.arrow_drop_down, color: accentColor, size: 20), // Màu icon nổi bật
+                        ),
+                        dropdownStyleData: DropdownStyleData(
+                          maxHeight: 200,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: currentSurfaceColor.withOpacity(0.95), // Màu nền dropdown nhẹ
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          scrollbarTheme: ScrollbarThemeData(
+                            radius: Radius.circular(40),
+                            thickness: MaterialStateProperty.all(6),
+                            thumbColor: MaterialStateProperty.all(accentColor.withOpacity(0.7)), // Màu thanh cuộn
+                          ),
+                        ),
+                        menuItemStyleData: MenuItemStyleData(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-        ],
-    );
-  }
-
-  Future<void> _selectExpiryDate() async {
-    _logger.i('Mở dialog chọn ngày hết hạn');
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _expiryDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(
-              primary: primaryColor,
-              onPrimary: Colors.white,
-              surface: currentSurfaceColor,
-              onSurface: currentTextPrimaryColor,
-            ),
-            dialogBackgroundColor: currentSurfaceColor,
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != _expiryDate) {
-      setState(() {
-        _expiryDate = picked;
-      });
-      _logger.i('Đã chọn ngày hết hạn: ${DateFormat('dd/MM/yyyy').format(picked)}');
-    } else {
-      _logger.i('Người dùng hủy chọn ngày hết hạn');
-    }
-  }
-
-  Widget _buildModernTextField({
-    required String label,
-    required String hint,
-    required IconData icon,
-    required TextEditingController controller,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: currentTextPrimaryColor,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          validator: validator,
-          style: TextStyle(color: currentTextPrimaryColor),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: currentTextSecondaryColor),
-            prefixIcon: Icon(icon, color: primaryColor, size: 20),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: currentTextSecondaryColor.withOpacity(0.3)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: primaryColor, width: 2),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: currentTextSecondaryColor.withOpacity(0.3)),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: errorColor),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: errorColor, width: 2),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildModernDropdown<T>({
-    required String label,
-    required IconData icon,
-    required T? value,
-    required List<DropdownMenuItem<T>> items,
-    required void Function(T?) onChanged,
-    String? Function(T?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: currentTextPrimaryColor,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField2<T>(
-          value: items.isEmpty ? null : value, // Đặt value thành null nếu items rỗng
-          items: items.isEmpty
-              ? [
-            DropdownMenuItem<T>(
-              value: null,
-              child: Text(
-                'Không có dữ liệu',
-                style: TextStyle(color: currentTextSecondaryColor),
-              ),
-            ),
-          ]
-              : items.map((item) {
-            return DropdownMenuItem<T>(
-              value: item.value,
-              child: Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 180),
-                  child: item.child, // Sử dụng trực tiếp item.child, không cần kiểm tra Text
+            SizedBox(height: 16),
+            DropdownButtonFormField2<String>(
+              value: _selectedCategoryId,
+              decoration: InputDecoration(
+                labelText: 'Danh mục',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: primaryColor, width: 2),
                 ),
               ),
-            );
-          }).toList(),
-          onChanged: items.isEmpty ? null : onChanged, // Vô hiệu hóa onChanged nếu rỗng
-          validator: validator,
-          isExpanded: true,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: primaryColor, size: 20),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: currentTextSecondaryColor.withOpacity(0.3)),
+              items: [
+                ..._foodCategories.map((category) => DropdownMenuItem<String>(
+                  value: category['id'],
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: 300), // Limit width
+                    child: Text(
+                      category['name'],
+                      style: TextStyle(
+                        color: currentTextPrimaryColor,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )),
+                DropdownMenuItem<String>(
+                  value: 'add_new',
+                  child: Row(
+                    children: [
+                      Icon(Icons.add_circle_outline, color: primaryColor, size: 20),
+                      SizedBox(width: 4),
+                      Container(
+                        constraints: BoxConstraints(maxWidth: 300),
+                        child: Text(
+                          'Thêm danh mục mới',
+                          style: TextStyle(
+                            color: primaryColor,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              onChanged: (value) async {
+                if (value == 'add_new') {
+                  await _showAddCategoryDialog();
+                } else {
+                  setState(() {
+                    _selectedCategoryId = value;
+                  });
+                  _logger.i('Đã chọn danh mục: $value');
+                }
+              },
+              validator: (value) {
+                if (value == null) {
+                  _logger.w('Danh mục không được để trống');
+                  return 'Vui lòng chọn danh mục';
+                }
+                return null;
+              },
+              buttonStyleData: ButtonStyleData(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+              ),
+              iconStyleData: IconStyleData(
+                icon: Icon(Icons.arrow_drop_down, color: currentTextSecondaryColor, size: 20),
+              ),
+              dropdownStyleData: DropdownStyleData(
+                maxHeight: 200,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: currentSurfaceColor,
+                ),
+                scrollbarTheme: ScrollbarThemeData(
+                  radius: Radius.circular(40),
+                  thickness: MaterialStateProperty.all(6),
+                ),
+              ),
+              menuItemStyleData: MenuItemStyleData(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+              ),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: primaryColor, width: 2),
+            SizedBox(height: 16),
+            DropdownButtonFormField2<String>(
+              value: _selectedAreaId,
+              decoration: InputDecoration(
+                labelText: 'Khu vực lưu trữ',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: primaryColor, width: 2),
+                ),
+              ),
+              items: _storageAreas.map((area) => DropdownMenuItem<String>(
+                value: area['id'],
+                child: Container(
+                  constraints: BoxConstraints(maxWidth: 300), // Limit width
+                  child: Text(
+                    area['name'],
+                    style: TextStyle(
+                      color: currentTextPrimaryColor,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedAreaId = value;
+                });
+                _logger.i('Đã chọn khu vực lưu trữ: $value');
+              },
+              validator: (value) {
+                if (value == null) {
+                  _logger.w('Khu vực lưu trữ không được để trống');
+                  return 'Vui lòng chọn khu vực lưu trữ';
+                }
+                return null;
+              },
+              buttonStyleData: ButtonStyleData(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+              ),
+              iconStyleData: IconStyleData(
+                icon: Icon(Icons.arrow_drop_down, color: currentTextSecondaryColor, size: 20),
+              ),
+              dropdownStyleData: DropdownStyleData(
+                maxHeight: 200,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: currentSurfaceColor,
+                ),
+                scrollbarTheme: ScrollbarThemeData(
+                  radius: Radius.circular(40),
+                  thickness: MaterialStateProperty.all(6),
+                ),
+              ),
+              menuItemStyleData: MenuItemStyleData(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+              ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: currentTextSecondaryColor.withOpacity(0.3)),
+            SizedBox(height: 16),
+            GestureDetector(
+              onTap: () async {
+                _logger.i('Mở bộ chọn ngày hết hạn');
+                final pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now().add(Duration(days: 7)),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(Duration(days: 365)),
+                  builder: (context, child) {
+                    return Theme(
+                      data: ThemeData.light().copyWith(
+                        colorScheme: ColorScheme.light(
+                          primary: primaryColor,
+                          onPrimary: Colors.white,
+                          surface: currentSurfaceColor,
+                          onSurface: currentTextPrimaryColor,
+                        ),
+                        dialogBackgroundColor: currentSurfaceColor,
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (pickedDate != null) {
+                  setState(() {
+                    _expiryDate = pickedDate;
+                  });
+                  _logger.i('Đã chọn ngày hết hạn: ${DateFormat('dd/MM/yyyy').format(pickedDate)}');
+                } else {
+                  _logger.i('Người dùng hủy chọn ngày hết hạn');
+                }
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _expiryDate == null ? errorColor : currentTextSecondaryColor.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.calendar_today_rounded, color: currentTextSecondaryColor),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _expiryDate == null
+                            ? 'Chọn ngày hết hạn'
+                            : DateFormat('dd/MM/yyyy').format(_expiryDate!),
+                        style: TextStyle(
+                          color: _expiryDate == null ? errorColor : currentTextPrimaryColor,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: errorColor),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: errorColor, width: 2),
-            ),
-          ),
-          style: TextStyle(
-            color: currentTextPrimaryColor,
-            fontSize: 14,
-          ),
-          dropdownStyleData: DropdownStyleData(
-            maxHeight: 300,
-            width: 280,
-            decoration: BoxDecoration(
-              color: currentSurfaceColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            offset: const Offset(0, -8),
-          ),
-          menuItemStyleData: MenuItemStyleData(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            height: 48,
-          ),
-          iconStyleData: IconStyleData(
-            icon: Icon(Icons.arrow_drop_down, color: currentTextSecondaryColor),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildSaveButton() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 24, bottom: 16),
       child: ElevatedButton(
-        onPressed: _isSaving || _isLoading ? null : _saveFood,
+        onPressed: _isSaving ? null : _saveFood,
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 2,
-          shadowColor: primaryColor.withOpacity(0.3),
         ),
         child: _isSaving
-            ? LoadingAnimationWidget.threeArchedCircle(
-          color: Colors.white,
-          size: 24,
-        )
-            : const Text(
-          'Lưu thực phẩm',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            ? SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
             color: Colors.white,
+            strokeWidth: 2,
           ),
+        )
+            : Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.save_rounded, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'Lưu thực phẩm',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
     );

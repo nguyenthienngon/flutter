@@ -1362,81 +1362,98 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
     final controller = TextEditingController();
+    bool isAdding = false; // Thêm state để disable button khi đang thêm
+
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.add_location_alt_rounded, color: primaryColor),
-            const SizedBox(width: 8),
-            const Text('Thêm khu vực mới'),
+      builder: (context) => StatefulBuilder( // Sử dụng StatefulBuilder để update state trong dialog
+        builder: (context, setStateDialog) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.add_location_alt_rounded, color: primaryColor),
+              const SizedBox(width: 8),
+              const Text('Thêm khu vực mới'),
+            ],
+          ),
+          content: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: 'Nhập tên khu vực',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: primaryColor, width: 2),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Hủy',
+                style: TextStyle(color: currentTextSecondaryColor),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: isAdding ? null : () async { // Disable button nếu đang adding
+                setStateDialog(() => isAdding = true); // Update state để disable
+                final name = controller.text.trim();
+                if (name.isEmpty) {
+                  _showErrorSnackBar('Vui lòng nhập tên khu vực');
+                  setStateDialog(() => isAdding = false);
+                  return;
+                }
+                try {
+                  print('Sending POST for area: $name'); // Log để debug
+                  final response = await http.post(
+                    Uri.parse('${Config.getNgrokUrl()}/add_area'),
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': 'Bearer ${widget.token}',
+                    },
+                    body: jsonEncode({
+                      'name': name,
+                      'fridgeId': _selectedFridgeId,
+                      'userId': widget.uid,
+                    }),
+                  );
+                  final data = jsonDecode(response.body);
+                  if (response.statusCode == 200) {
+                    await _fetchStorageAreas();
+                    _showSuccessSnackBar('Đã thêm khu vực thành công!');
+                    Navigator.of(context).pop();
+                  } else {
+                    _showErrorSnackBar('Lỗi khi thêm khu vực: ${data['error'] ?? 'Không xác định'}');
+                  }
+                } catch (e) {
+                  _showErrorSnackBar('Lỗi khi thêm khu vực: $e');
+                } finally {
+                  setStateDialog(() => isAdding = false); // Enable lại button
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: isAdding
+                  ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : const Text('Lưu', style: TextStyle(color: Colors.white)),
+            ),
           ],
         ),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: 'Nhập tên khu vực',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: primaryColor, width: 2),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Hủy',
-              style: TextStyle(color: currentTextSecondaryColor),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final name = controller.text.trim();
-              if (name.isEmpty) {
-                _showErrorSnackBar('Vui lòng nhập tên khu vực');
-                return;
-              }
-              try {
-                final response = await http.post(
-                  Uri.parse('${Config.getNgrokUrl()}/add_area'),
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ${widget.token}',
-                  },
-                  body: jsonEncode({
-                    'name': name,
-                    'fridgeId': _selectedFridgeId,
-                    'userId': widget.uid,
-                  }),
-                );
-                final data = jsonDecode(response.body);
-                if (response.statusCode == 200) {
-                  await _fetchStorageAreas();
-                  _showSuccessSnackBar('Đã thêm khu vực thành công!');
-                  Navigator.of(context).pop();
-                } else {
-                  _showErrorSnackBar('Lỗi khi thêm khu vực: ${data['error'] ?? 'Không xác định'}');
-                }
-              } catch (e) {
-                _showErrorSnackBar('Lỗi khi thêm khu vực: $e');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Lưu', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
-
   Future<void> _showInviteUserDialog() async {
     if (_selectedFridgeId == null) {
       _showErrorSnackBar('Vui lòng chọn một tủ lạnh trước.');

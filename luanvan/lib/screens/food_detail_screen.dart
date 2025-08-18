@@ -133,79 +133,6 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     super.dispose();
   }
 
-  Future<void> _fetchInitialData() async {
-    try {
-      print('Fetching initial data for storageLogId: ${widget.storageLogId}');
-      if (widget.initialLog != null && widget.initialLog!.isNotEmpty) {
-        _foodLog = Map<String, dynamic>.from(widget.initialLog!);
-        print('Using initialLog: $_foodLog');
-      } else {
-        final response = await http.get(
-          Uri.parse('${Config.getNgrokUrl()}/get_sorted_storage_logs?userId=${widget.userId}'),
-          headers: {'Content-Type': 'application/json'},
-        );
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final logs = data['logs'] as List<dynamic>? ?? [];
-          _foodLog = logs.firstWhere(
-                (log) => log['id'] == widget.storageLogId,
-            orElse: () => {
-              'foodName': 'Unknown',
-              'id': widget.storageLogId,
-              'quantity': 0,
-              'areaId': null,
-              'expiryDate': null,
-              'categoryName': 'Unknown Category',
-              'storageDate': null,
-              'unitName': 'Unknown Unit',
-              'imageUrl': null,
-            },
-          );
-          print('Fetched log from API: $_foodLog');
-        } else {
-          print('API error: ${response.statusCode} - ${response.body}');
-          _foodLog = {
-            'foodName': 'Unknown',
-            'id': widget.storageLogId,
-            'quantity': 0,
-            'areaId': null,
-            'expiryDate': null,
-            'categoryName': 'Unknown Category',
-            'storageDate': null,
-            'unitName': 'Unknown Unit',
-            'imageUrl': null,
-          };
-        }
-      }
-      // Fetch imageUrl from Firestore
-      if (_foodLog?['foodId'] != null) {
-        final foodDoc = await _firestore.collection('Foods').doc(_foodLog!['foodId']).get();
-        if (foodDoc.exists) {
-          final foodData = foodDoc.data();
-          _foodLog!['imageUrl'] = foodData?['imageUrl'];
-        }
-      }
-      // Fetch categoryName from API if needed
-      if (_foodLog?['categoryName'] == 'Unknown Category' && _foodLog?['foodId'] != null) {
-        final categoryName = await _fetchCategoryNameFromApi(_foodLog!['foodId']);
-        _foodLog!['categoryName'] = categoryName;
-      }
-      _updateUIFromLog();
-    } catch (e) {
-      print('Error fetching initial data: $e');
-      _foodLog ??= {
-        'foodName': 'Unknown',
-        'id': widget.storageLogId,
-        'quantity': 0,
-        'areaId': null,
-        'expiryDate': null,
-        'categoryName': 'Unknown Category',
-        'storageDate': null,
-        'unitName': 'Unknown Unit',
-        'imageUrl': null,
-      };
-    }
-  }
 
   Future<String> _fetchCategoryNameFromApi(String foodId) async {
     try {
@@ -254,29 +181,15 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
     _quantityController.text = (_foodLog?['quantity'] as num?)?.toString() ?? '0';
     _selectedAreaId = _foodLog?['areaId'];
     _selectedExpiryDate = _parseDate(_foodLog?['expiryDate']);
-    _storageDate = _parseDate(_foodLog?['storageDate']);
+    _storageDate = _parseDate(_foodLog?['createdAt']); // Sửa từ storageDate thành createdAt
     _selectedUnitName = _foodLog?['unitName'] ??
         _units.firstWhere(
               (unit) => unit['id'] == _foodLog?['unitId'],
           orElse: () => {'name': 'Unknown Unit'},
         )['name'] ??
         'Unknown Unit';
-  }
-
-  DateTime? _parseDate(dynamic dateData) {
-    if (dateData is String) {
-      try {
-        return _customDateFormat.parse(dateData, true).toUtc().toLocal();
-      } catch (e) {
-        print('Custom date parsing failed for $dateData: $e');
-        return DateTime.tryParse(dateData) ?? DateTime.tryParse(dateData.split('.')[0]);
-      }
-    } else if (dateData is DateTime) {
-      return dateData;
-    } else if (dateData is Timestamp) {
-      return dateData.toDate();
-    }
-    return null;
+    // Log để debug
+    print('Parsed _storageDate: $_storageDate, Parsed _selectedExpiryDate: $_selectedExpiryDate');
   }
 
   Future<void> _updateFoodAndStorageLog() async {
@@ -841,7 +754,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(
-                                          daysLeft > 0 ? '$daysLeft ngày' : 'Đã hết hạn',
+                                          daysLeft >= 0 ? '$daysLeft ngày' : 'Đã hết hạn',
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
@@ -1217,18 +1130,128 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
       ),
     );
   }
+// Trong _fetchInitialData, thêm log để debug
+  Future<void> _fetchInitialData() async {
+    try {
+      print('Fetching initial data for storageLogId: ${widget.storageLogId}');
+      if (widget.initialLog != null && widget.initialLog!.isNotEmpty) {
+        _foodLog = Map<String, dynamic>.from(widget.initialLog!);
+        print('Using initialLog: $_foodLog');
+      } else {
+        final response = await http.get(
+          Uri.parse('${Config.getNgrokUrl()}/get_sorted_storage_logs?userId=${widget.userId}'),
+          headers: {'Content-Type': 'application/json'},
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final logs = data['logs'] as List<dynamic>? ?? [];
+          _foodLog = logs.firstWhere(
+                (log) => log['id'] == widget.storageLogId,
+            orElse: () => {
+              'foodName': 'Unknown',
+              'id': widget.storageLogId,
+              'quantity': 0,
+              'areaId': null,
+              'expiryDate': null,
+              'categoryName': 'Unknown Category',
+              'storageDate': DateTime.now().toIso8601String(), // Gán giá trị mặc định
+              'unitName': 'Unknown Unit',
+              'imageUrl': null,
+            },
+          );
+          print('Fetched log from API: $_foodLog');
+        } else {
+          print('API error: ${response.statusCode} - ${response.body}');
+          _foodLog = {
+            'foodName': 'Unknown',
+            'id': widget.storageLogId,
+            'quantity': 0,
+            'areaId': null,
+            'expiryDate': null,
+            'categoryName': 'Unknown Category',
+            'storageDate': DateTime.now().toIso8601String(), // Gán giá trị mặc định
+            'unitName': 'Unknown Unit',
+            'imageUrl': null,
+          };
+        }
+      }
+      // Fetch imageUrl from Firestore
+      if (_foodLog?['foodId'] != null) {
+        final foodDoc = await _firestore.collection('Foods').doc(_foodLog!['foodId']).get();
+        if (foodDoc.exists) {
+          final foodData = foodDoc.data();
+          _foodLog!['imageUrl'] = foodData?['imageUrl'];
+        }
+      }
+      // Fetch categoryName from API if needed
+      if (_foodLog?['categoryName'] == 'Unknown Category' && _foodLog?['foodId'] != null) {
+        final categoryName = await _fetchCategoryNameFromApi(_foodLog!['foodId']);
+        _foodLog!['categoryName'] = categoryName;
+      }
+      // Log giá trị storageDate và expiryDate
+      print('storageDate: ${_foodLog?['storageDate']}, expiryDate: ${_foodLog?['expiryDate']}');
+      _updateUIFromLog();
+    } catch (e) {
+      print('Error fetching initial data: $e');
+      _foodLog ??= {
+        'foodName': 'Unknown',
+        'id': widget.storageLogId,
+        'quantity': 0,
+        'areaId': null,
+        'expiryDate': null,
+        'categoryName': 'Unknown Category',
+        'storageDate': DateTime.now().toIso8601String(), // Gán giá trị mặc định
+        'unitName': 'Unknown Unit',
+        'imageUrl': null,
+      };
+    }
+  }
 
+// Cải thiện _parseDate
+  DateTime? _parseDate(dynamic dateData) {
+    if (dateData == null) {
+      print('Date data is null');
+      return null;
+    }
+    if (dateData is String) {
+      try {
+        return _customDateFormat.parse(dateData, true).toUtc().toLocal();
+      } catch (e) {
+        print('Custom date parsing failed for $dateData: $e');
+        try {
+          return DateTime.parse(dateData);
+        } catch (e2) {
+          print('Standard date parsing failed for $dateData: $e2');
+          try {
+            return DateTime.parse(dateData.split('.')[0]);
+          } catch (e3) {
+            print('Split date parsing failed for $dateData: $e3');
+            return null;
+          }
+        }
+      }
+    } else if (dateData is DateTime) {
+      print('Date data is DateTime: $dateData');
+      return dateData;
+    } else if (dateData is Timestamp) {
+      print('Date data is Timestamp: $dateData');
+      return dateData.toDate();
+    }
+    print('Unknown date format: $dateData');
+    return null;
+  }
+// Sửa _buildInfoRow để hiển thị giống _buildModernSelector
   Widget _buildInfoRow(String label, String value, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient( // Thêm gradient
+        gradient: LinearGradient(
           colors: [currentSurfaceColor, currentSurfaceColor.withOpacity(0.95)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [ // Thêm boxShadow
+        boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
@@ -1261,7 +1284,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen> with TickerProvider
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  value,
+                  value == 'Unknown' ? 'Chưa xác định' : value, // Thay "Unknown" bằng "Chưa xác định"
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
