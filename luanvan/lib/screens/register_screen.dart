@@ -159,14 +159,12 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
           return 'Thông tin đăng ký không hợp lệ';
         case 409:
           return 'Email đã được sử dụng';
-        case 422:
-          return 'Dữ liệu không đúng định dạng';
         case 429:
           return 'Quá nhiều yêu cầu. Vui lòng thử lại sau';
         case 500:
           return 'Lỗi server. Vui lòng thử lại sau';
         default:
-          return 'Đăng ký thất bại';
+          return 'Có lỗi xảy ra. Vui lòng thử lại';
       }
     }
 
@@ -176,9 +174,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
     }
     if (errorStr.contains('timeout')) {
       return 'Kết nối quá chậm. Vui lòng thử lại';
-    }
-    if (errorStr.contains('format')) {
-      return 'Dữ liệu không đúng định dạng';
     }
     return 'Có lỗi xảy ra. Vui lòng thử lại';
   }
@@ -288,7 +283,6 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
               ? errorMsg
               : _getErrorMessage(null, response.statusCode);
         });
-
       }
     } catch (e) {
       setState(() {

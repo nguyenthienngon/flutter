@@ -3168,15 +3168,15 @@ class _DayRecipesSheet extends StatelessWidget {
               ),
             )
                 : ListView.builder(
-              shrinkWrap: true, // Ensure ListView takes only the space it needs
-              physics: const NeverScrollableScrollPhysics(), // Disable scrolling within ListView
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: meals.length,
               itemBuilder: (context, index) {
                 final meal = meals[index];
                 final recipeId = meal['id']?.toString() ?? '';
                 return Dismissible(
-                  key: ValueKey(recipeId),
+                  key: ValueKey('$recipeId-$dateKey-$index'),
                   direction: DismissDirection.horizontal,
                   background: Container(
                     alignment: Alignment.centerLeft,
@@ -3198,35 +3198,70 @@ class _DayRecipesSheet extends StatelessWidget {
                   ),
                   confirmDismiss: (direction) async {
                     if (direction == DismissDirection.startToEnd) {
-                      await onMoveMeal(dateKey, recipeId, meal);
-                      return false; // Prevent immediate dismissal
-                    }
-                    return await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        backgroundColor: theme.surface,
-                        title: Text('Xác nhận xóa', style: TextStyle(color: theme.textPrimary)),
-                        content: Text(
-                          'Xóa "${meal['title'] ?? 'Không có tiêu đề'}" khỏi lịch ngày $dayName?',
-                          style: TextStyle(color: theme.textSecondary),
+                      // Mở hộp thoại chọn ngày mới
+                      final newDate = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                        lastDate: DateTime.now().add(const Duration(days: 30)),
+                        builder: (context, child) => Theme(
+                          data: ThemeData(
+                            colorScheme: ColorScheme.light(
+                              primary: theme.primary,
+                              onPrimary: Colors.white,
+                              surface: theme.surface,
+                              onSurface: theme.textPrimary,
+                            ),
+                          ),
+                          child: child!,
                         ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: Text('Hủy', style: TextStyle(color: theme.secondary)),
+                      );
+
+                      if (newDate != null) {
+                        final newDateKey = newDate.toIso8601String().split('T')[0];
+                        await onMoveMeal(dateKey, recipeId, meal);
+                        // Hiển thị thông báo thành công
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Đã di chuyển "${meal['title']}" đến ngày ${DateFormat('d/M/yyyy', 'vi_VN').format(newDate)}'),
+                            backgroundColor: theme.success,
                           ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: Text('Xóa', style: TextStyle(color: theme.error)),
+                        );
+                      }
+                      return false; // Không xóa widget
+                    } else if (direction == DismissDirection.endToStart) {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          backgroundColor: theme.surface,
+                          title: Text('Xác nhận xóa', style: TextStyle(color: theme.textPrimary)),
+                          content: Text(
+                            'Xóa "${meal['title'] ?? 'Không có tiêu đề'}" khỏi lịch ngày $dayName?',
+                            style: TextStyle(color: theme.textSecondary),
                           ),
-                        ],
-                      ),
-                    ) ?? false;
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: Text('Hủy', style: TextStyle(color: theme.secondary)),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: Text('Xóa', style: TextStyle(color: theme.error)),
+                            ),
+                          ],
+                        ),
+                      ) ?? false;
+
+                      if (confirmed) {
+                        await onDeleteMeal(dateKey, recipeId);
+                        return true;
+                      }
+                      return false;
+                    }
+                    return false;
                   },
                   onDismissed: (direction) {
-                    if (direction == DismissDirection.endToStart) {
-                      onDeleteMeal(dateKey, recipeId);
-                    }
+                    // Không cần xử lý trong onDismissed vì đã xử lý trong confirmDismiss
                   },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -3256,7 +3291,8 @@ class _DayRecipesSheet extends StatelessWidget {
                       ),
                       subtitle: Text(
                         meal['timeSlot'] != null
-                            ? {'morning': 'Sáng', 'afternoon': 'Trưa', 'evening': 'Tối'}[meal['timeSlot']] ?? 'Khác'
+                            ? {'morning': 'Sáng', 'afternoon': 'Trưa', 'evening': 'Tối'}[meal['timeSlot']] ??
+                            'Khác'
                             : 'Không xác định',
                         style: TextStyle(
                           color: theme.textSecondary,
@@ -3270,6 +3306,8 @@ class _DayRecipesSheet extends StatelessWidget {
               },
             ),
           ),
+
+
         ],
       ),
     );

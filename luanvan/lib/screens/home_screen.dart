@@ -1517,10 +1517,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   _showSuccessSnackBar('Đã gửi lời mời thành công!');
                   Navigator.of(context).pop();
                 } else {
-                  _showErrorSnackBar('Lỗi khi gửi lời mời: ${data['error'] ?? 'Không xác định'}');
                 }
               } catch (e) {
-                _showErrorSnackBar('Lỗi khi gửi lời mời: $e');
               }
             },
             style: ElevatedButton.styleFrom(
@@ -1560,10 +1558,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         await _fetchStorageLogs(page: 0);
         _showSuccessSnackBar('Đã chấp nhận lời mời!');
       } else {
-        _showErrorSnackBar('Lỗi khi chấp nhận lời mời: ${data['error'] ?? 'Không xác định'}');
       }
     } catch (e) {
-      _showErrorSnackBar('Lỗi khi chấp nhận lời mời: $e');
+
     }
   }
 
@@ -1582,10 +1579,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         await _fetchPendingInvitations();
         _showSuccessSnackBar('Đã từ chối lời mời!');
       } else {
-        _showErrorSnackBar('Lỗi khi từ chối lời mời: ${data['error'] ?? 'Không xác định'}');
       }
     } catch (e) {
-      _showErrorSnackBar('Lỗi khi từ chối lời mời: $e');
     }
   }
 
@@ -2471,7 +2466,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   subtitle: Text(
-                    'Từ: $inviterId',
+                    'Từ: Người dùng Ngonb2110020',
                     style: TextStyle(color: currentTextSecondaryColor),
                   ),
                   trailing: Row(
